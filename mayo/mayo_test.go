@@ -1,10 +1,26 @@
 package mayo
 
-import "testing"
+import (
+	"bytes"
+	"crypto/rand"
+	"io"
+	"testing"
+)
 
-func TestTheTest(t *testing.T) {
-	b := true
-	if !b {
-		t.Error("error testing")
+func TestEncodeDecode(t *testing.T) {
+	n := 4
+	b := make([]byte, n)
+
+	reader := rand.Reader
+	_, _ = io.ReadFull(reader, b)
+	for i, elem := range b {
+		b[i] = elem & 0xf
+	}
+
+	encoded := encode(b)
+	decoded := decode(n, encoded)
+
+	if !bytes.Equal(b, decoded) {
+		t.Error("Original and decoded is not the same", b, decoded)
 	}
 }
