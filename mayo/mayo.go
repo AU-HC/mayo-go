@@ -1,9 +1,10 @@
 package mayo
 
 import (
+	"crypto/aes"
+	"crypto/cipher"
 	cryptoRand "crypto/rand"
 	"crypto/sha3"
-	"fmt"
 	"io"
 	"math"
 )
@@ -66,7 +67,7 @@ type CompactPublicKey struct {
 type CompactSecretKey struct {
 }
 
-func decode(n int, bytes []byte) []byte {
+func decodeVec(n int, bytes []byte) []byte {
 	decoded := make([]byte, n)
 	var i int
 	for i = 0; i < n/2; i++ {
@@ -82,7 +83,7 @@ func decode(n int, bytes []byte) []byte {
 	return decoded
 }
 
-func encode(bytes []byte) []byte {
+func encodeVec(bytes []byte) []byte {
 	encoded := make([]byte, int(math.Ceil(float64(len(bytes))/2.0)))
 
 	var i int
@@ -96,6 +97,15 @@ func encode(bytes []byte) []byte {
 	}
 
 	return encoded
+}
+
+func aes128ctr(seed []byte, l int) []byte {
+	var nonce [16]byte
+	block, _ := aes.NewCipher(seed[:])
+	ctr := cipher.NewCTR(block, nonce[:])
+	dst := make([]byte, l)
+	ctr.XORKeyStream(dst[:], dst[:]) // TODO: should this just be all zeroes?
+	return dst
 }
 
 func (mayo *Mayo) CompactKeyGen() (*CompactPublicKey, *CompactSecretKey, error) {
@@ -112,10 +122,16 @@ func (mayo *Mayo) CompactKeyGen() (*CompactPublicKey, *CompactSecretKey, error) 
 	_, _ = h.Read(s[:])
 
 	seedPk := s[:mayo.pkSeedBytes]
-	o := decode((mayo.n-mayo.o)*mayo.o, s[mayo.pkSeedBytes:mayo.pkSeedBytes+mayo.oBytes])
+	o := decodeVec((mayo.n-mayo.o)*mayo.o, s[mayo.pkSeedBytes:mayo.pkSeedBytes+mayo.oBytes]) // TODO: fix this to be a matrix
+	om := make([][]byte, mayo.n-mayo.o)
+	for i := 0; i < len(om); i++ {
+		om[i] = o[i*mayo.o : (i+1)*mayo.o]
+	}
 
-	fmt.Println(seedPk)
-	fmt.Println(o)
+	p := aes128ctr(seedPk, mayo.p1Bytes+mayo.p2Bytes)
+	if len(p) != mayo.p1Bytes+mayo.p2Bytes {
+		panic(1)
+	}
 
 	return &CompactPublicKey{}, &CompactSecretKey{}, nil
 }

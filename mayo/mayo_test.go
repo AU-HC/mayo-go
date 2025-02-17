@@ -17,8 +17,8 @@ func TestEncodeDecode(t *testing.T) {
 		b[i] = elem & 0xf
 	}
 
-	encoded := encode(b)
-	decoded := decode(n, encoded)
+	encoded := encodeVec(b)
+	decoded := decodeVec(n, encoded)
 
 	if !bytes.Equal(b, decoded) {
 		t.Error("Original and decoded is not the same", b, decoded)
