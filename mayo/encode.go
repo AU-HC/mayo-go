@@ -35,3 +35,30 @@ func decodeVec(n int, bytes []byte) []byte {
 
 	return decoded
 }
+
+// encodeMatrix encodes a matrix of byte slices into a single byte slice
+func encodeMatrix(bytes [][]byte) []byte {
+	// amountRows := len(bytes)
+	// encodeRowSizeBytes := (len(bytes[0]) + 1) / 2
+
+	var encoded []byte
+
+	for _, row := range bytes {
+		encodedRow := encodeVec(row)
+		// TODO: Consider allocating before
+		encoded = append(encoded, encodedRow...)
+	}
+
+	return encoded
+}
+
+func decodeMatrix(rows, columns int, bytes []byte) [][]byte {
+	flatDecodedMatrix := decodeVec(rows*columns, bytes)
+
+	decodedMatrix := make([][]byte, rows)
+	for i := 0; i < len(decodedMatrix); i++ {
+		decodedMatrix[i] = flatDecodedMatrix[i*columns : (i+1)*columns]
+	}
+
+	return decodedMatrix
+}
