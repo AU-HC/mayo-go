@@ -35,6 +35,27 @@ func TestEncodeVecLengthOdd(t *testing.T) {
 	}
 }
 
+func TestEncodeVecHandleOverflow(t *testing.T) {
+	n := 5
+	b := make([]byte, n)
+
+	reader := rand.Reader
+	_, _ = io.ReadFull(reader, b)
+
+	b[n-1] = 0xff
+
+	encoded := encodeVec(b)
+	decoded := decodeVec(n, encoded)
+
+	for i, elem := range b {
+		b[i] = elem & 0xf
+	}
+
+	if !bytes.Equal(b, decoded) {
+		t.Error("Overflow not handled correctly", encoded, b)
+	}
+}
+
 func TestDecodeVecOdd(t *testing.T) {
 	n := 5
 	b := make([]byte, n)

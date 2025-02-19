@@ -1,4 +1,4 @@
-﻿package mayo
+package mayo
 
 import "encoding/binary"
 
@@ -7,7 +7,7 @@ func encodeVec(bytes []byte) []byte {
 	encoded := make([]byte, (len(bytes)+1)/2)
 
 	for i := 0; i < len(bytes)-1; i += 2 {
-		encoded[i/2] = bytes[i] | (bytes[i+1] << 4)
+		encoded[i/2] = (bytes[i] & 0xf) | (bytes[i+1] << 4)
 	}
 
 	if (len(bytes) % 2) == 1 {
@@ -63,6 +63,7 @@ func decodeMatrix(rows, columns int, bytes []byte) [][]byte {
 	return decodedMatrix
 }
 
+// decodeMatrixList decodes a byte slice into a list of matrices of byte slices
 func decodeMatrixList(m, rows, columns int, bytes []byte) [][][]byte {
 	decoded := make([][][]byte, m)
 
@@ -73,6 +74,7 @@ func decodeMatrixList(m, rows, columns int, bytes []byte) [][][]byte {
 	return decoded
 }
 
+// toInt64 converts a byte slice into a slice of uint64
 func toInt64(src []byte) []uint64 {
 	dst := make([]uint64, len(src)/8)
 
