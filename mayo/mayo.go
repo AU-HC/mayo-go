@@ -92,11 +92,9 @@ func (mayo *Mayo) CompactKeyGen() (*CompactPublicKey, *CompactSecretKey, error) 
 	_, _ = h.Read(s[:])
 
 	seedPk := s[:mayo.pkSeedBytes]
-	o := decodeVec((mayo.n-mayo.o)*mayo.o, s[mayo.pkSeedBytes:mayo.pkSeedBytes+mayo.oBytes]) // TODO: fix this to be a matrix
-	om := make([][]byte, mayo.n-mayo.o)
-	for i := 0; i < len(om); i++ {
-		om[i] = o[i*mayo.o : (i+1)*mayo.o]
-	}
+	o := decodeMatrix(mayo.n-mayo.o, mayo.o, s[mayo.pkSeedBytes:mayo.pkSeedBytes+mayo.oBytes])
+
+	fmt.Println(o)
 
 	p := aes128ctr(seedPk, mayo.p1Bytes+mayo.p2Bytes)
 
