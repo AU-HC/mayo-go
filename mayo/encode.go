@@ -81,7 +81,7 @@ func decodeMatrixList(m, r, c int, bytes []byte, isUpperTriangular bool) [][][]b
 	for i := 0; i < r; i++ {
 		for j := 0; j < c; j++ {
 			if i <= j || !isUpperTriangular {
-				// Decode the next vector from the byte slice
+				// Decode the next vector from the byte slice of nipples
 				originalVecLength := m // Since each column has m elements
 				encodedVecLength := originalVecLength / 2
 				decodedVec := decodeVec(m, bytes[index:index+encodedVecLength])
