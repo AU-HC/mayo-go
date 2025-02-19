@@ -6,7 +6,7 @@ import (
 )
 
 func main() {
-	mayo := standard.InitMayo(16, 64, 66, 8, 9, 24, 32, 16)
+	mayo := standard.InitMayo(standard.LevelOne)
 	pk, sk, err := mayo.CompactKeyGen()
 
 	if err != nil {
