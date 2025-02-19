@@ -178,35 +178,11 @@ func TestEncodeDecodeMatrix(t *testing.T) {
 	}
 }
 
-/*
-func TestDecodeMatrixList(t *testing.T) {
-	rows := 5
-	columns := 5
-	matrix := make([][]byte, rows)
-
-	for i := 0; i < rows; i++ {
-		matrix[i] = make([]byte, columns)
-		reader := rand.Reader
-		_, _ = io.ReadFull(reader, matrix[i])
-		for j, elem := range matrix[i] {
-			matrix[i][j] = elem & 0xf
-		}
-	}
-
-	encoded := encodeMatrix(matrix)
-	decoded := decodeMatrixList(1, rows, columns, encoded)
-
-	if !bytes.Equal(matrix[0], decoded[0][0]) {
-		t.Error("Original and decoded is not the same", matrix[0], decoded[0][0])
-	}
-}
-
-*/
-
 func TestEncodeDecodeMatrixListNonUpperTriangular(t *testing.T) {
 	rows := 5
 	columns := 5
-	matrices := make([][][]byte, 2)
+	m := 2
+	matrices := make([][][]byte, m)
 
 	for i := 0; i < 2; i++ {
 		matrix := make([][]byte, rows)
@@ -224,7 +200,11 @@ func TestEncodeDecodeMatrixListNonUpperTriangular(t *testing.T) {
 	encoded := encodeMatrixList(rows, columns, matrices, false)
 	decoded := decodeMatrixList(2, rows, columns, encoded, false)
 
-	if !bytes.Equal(matrices[0][0], decoded[0][0]) {
-		t.Error("Original and decoded is not the same", matrices[0][0], decoded[0][0])
+	for i := 0; i < m; i++ {
+		for j := 0; j < rows; j++ {
+			if !bytes.Equal(matrices[i][j], decoded[i][j]) {
+				t.Error("Original and decoded is not the same", matrices[i][j], decoded[i][j])
+			}
+		}
 	}
 }
