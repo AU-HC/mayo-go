@@ -204,8 +204,8 @@ func TestDecodeMatrixList(t *testing.T) {
 */
 
 func TestEncodeDecodeMatrixListNonUpperTriangular(t *testing.T) {
-	rows := 4
-	columns := 4
+	rows := 5
+	columns := 5
 	matrices := make([][][]byte, 2)
 
 	for i := 0; i < 2; i++ {
@@ -221,7 +221,7 @@ func TestEncodeDecodeMatrixListNonUpperTriangular(t *testing.T) {
 		matrices[i] = matrix
 	}
 
-	encoded := encodeMatrixList(4, 4, matrices, false)
+	encoded := encodeMatrixList(rows, columns, matrices, false)
 	decoded := decodeMatrixList(2, rows, columns, encoded, false)
 
 	if !bytes.Equal(matrices[0][0], decoded[0][0]) {

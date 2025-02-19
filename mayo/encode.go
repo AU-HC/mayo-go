@@ -68,19 +68,34 @@ func decodeMatrix(rows, columns int, bytes []byte) [][]byte {
 // TODO: this is not correct according to the spec
 // decodeMatrixList decodes a byte slice into a list of matrices of byte slices
 func decodeMatrixList(m, r, c int, bytes []byte, isUpperTriangular bool) [][][]byte {
-	decoded := make([][][]byte, m)
+	// Initialize the list of matrices with zero values
+	matrices := make([][][]byte, m)
+	for k := 0; k < m; k++ {
+		matrices[k] = make([][]byte, r)
+		for i := 0; i < r; i++ {
+			matrices[k][i] = make([]byte, c)
+		}
+	}
 
+	index := 0
 	for i := 0; i < r; i++ {
 		for j := 0; j < c; j++ {
 			if i <= j || !isUpperTriangular {
-				toAppend := make([]byte, m)
+				// Decode the next vector from the byte slice
+				originalVecLength := m // Since each column has m elements
+				encodedVecLength := originalVecLength / 2
+				decodedVec := decodeVec(m, bytes[index:index+encodedVecLength])
+				index += encodedVecLength
 
-				decoded = append(decoded, decodeVec(toAppend)...)
+				// Assign values to the matrices
+				for k := 0; k < m; k++ {
+					matrices[k][i][j] = decodedVec[k]
+				}
 			}
 		}
 	}
 
-	return decoded
+	return matrices
 }
 
 // encodeMatrixList encodes a list of matrices of byte slices into a single byte slice. Makes use of the isUpperTriangular flag to encode only the upper triangular part of the matrices
@@ -92,8 +107,8 @@ func encodeMatrixList(r, c int, matrices [][][]byte, isUpperTriangular bool) []b
 			if i <= j || !isUpperTriangular {
 				vecToAppend := make([]byte, len(matrices))
 
-				for m := 0; m < len(matrices); m++ {
-					vecToAppend[m] = matrices[m][i][j]
+				for k := 0; k < len(matrices); k++ {
+					vecToAppend[k] = matrices[k][i][j]
 				}
 
 				encoded = append(encoded, encodeVec(vecToAppend)...)
@@ -102,7 +117,6 @@ func encodeMatrixList(r, c int, matrices [][][]byte, isUpperTriangular bool) []b
 	}
 
 	return encoded
-
 }
 
 // toInt64 converts a byte slice into a slice of uint64
