@@ -69,38 +69,6 @@ type CompactPublicKey struct {
 type CompactSecretKey struct {
 }
 
-func decodeVec(n int, bytes []byte) []byte {
-	decoded := make([]byte, n)
-	var i int
-	for i = 0; i < n/2; i++ {
-		decoded[i*2] = bytes[i] & 0xf // 0xf=00001111
-		decoded[i*2+1] = bytes[i] >> 4
-	}
-
-	// if 'n' is odd, then fix last nibble
-	if n%2 == 1 {
-		decoded[i*2] = bytes[i] & 0xf // 0xf=00001111
-	}
-
-	return decoded
-}
-
-func encodeVec(bytes []byte) []byte {
-	encoded := make([]byte, int(math.Ceil(float64(len(bytes))/2.0)))
-
-	var i int
-	for i = 0; i+1 < len(bytes); i += 2 {
-		encoded[i/2] = (bytes[i+0] << 0) | (bytes[i+1] << 4)
-	}
-
-	// if 'n' is odd, then fix last nibble
-	if len(bytes)%2 == 1 {
-		encoded[i/2] = bytes[i+0] << 0
-	}
-
-	return encoded
-}
-
 func aes128ctr(seed []byte, l int) []byte {
 	var nonce [16]byte
 	block, _ := aes.NewCipher(seed[:])
@@ -138,6 +106,8 @@ func (mayo *Mayo) CompactKeyGen() (*CompactPublicKey, *CompactSecretKey, error) 
 	for i := 0; i < mayo.m; i++ {
 		p1i := p1[i*mayo.p1Bytes : (i+1)*mayo.p1Bytes]
 		p2i := p2[i*mayo.p2Bytes : (i+1)*mayo.p2Bytes]
+		fmt.Println(p1i)
+		fmt.Println(p2i)
 	}
 
 	fmt.Println(p1)
