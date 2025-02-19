@@ -1,6 +1,8 @@
 package mayo
 
-import "encoding/binary"
+import (
+	"encoding/binary"
+)
 
 // encodeVec encodes a byte slice into a byte slice of half the length
 func encodeVec(bytes []byte) []byte {
@@ -63,6 +65,7 @@ func decodeMatrix(rows, columns int, bytes []byte) [][]byte {
 	return decodedMatrix
 }
 
+// TODO: this is not correct according to the spec
 // decodeMatrixList decodes a byte slice into a list of matrices of byte slices
 func decodeMatrixList(m, rows, columns int, bytes []byte) [][][]byte {
 	decoded := make([][][]byte, m)
@@ -72,6 +75,28 @@ func decodeMatrixList(m, rows, columns int, bytes []byte) [][][]byte {
 	}
 
 	return decoded
+}
+
+// encodeMatrixList encodes a list of matrices of byte slices into a single byte slice. Makes use of the isUpperTriangular flag to encode only the upper triangular part of the matrices
+func encodeMatrixList(r, c int, matrices [][][]byte, isUpperTriangular bool) []byte {
+	var encoded []byte
+
+	for i := 0; i < r; i++ {
+		for j := 0; j < c; j++ {
+			if i <= j || !isUpperTriangular {
+				vecToAppend := make([]byte, len(matrices))
+
+				for m := 0; m < len(matrices); m++ {
+					vecToAppend[i] = matrices[m][i][j]
+				}
+
+				encoded = append(encoded, encodeVec(vecToAppend)...)
+			}
+		}
+	}
+
+	return encoded
+
 }
 
 // toInt64 converts a byte slice into a slice of uint64

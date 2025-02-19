@@ -47,6 +47,7 @@ func TestEncodeVecHandleOverflow(t *testing.T) {
 	encoded := encodeVec(b)
 	decoded := decodeVec(n, encoded)
 
+	// Ensure that encoding forces values inside field
 	for i, elem := range b {
 		b[i] = elem & 0xf
 	}
@@ -196,5 +197,31 @@ func TestDecodeMatrixList(t *testing.T) {
 
 	if !bytes.Equal(matrix[0], decoded[0][0]) {
 		t.Error("Original and decoded is not the same", matrix[0], decoded[0][0])
+	}
+}
+
+func TestEncodeDecodeMatrixListNonUpperTriangular(t *testing.T) {
+	rows := 4
+	columns := 4
+	matrices := make([][][]byte, 2)
+
+	for i := 0; i < 2; i++ {
+		matrix := make([][]byte, rows)
+		for j := 0; j < rows; j++ {
+			matrix[j] = make([]byte, columns)
+			reader := rand.Reader
+			_, _ = io.ReadFull(reader, matrix[j])
+			for k, elem := range matrix[j] {
+				matrix[j][k] = elem & 0xf
+			}
+		}
+		matrices[i] = matrix
+	}
+
+	encoded := encodeMatrixList(4, 4, matrices, false)
+	decoded := decodeMatrixList(2, rows, columns, encoded)
+
+	if !bytes.Equal(matrices[0][0], decoded[0][0]) {
+		t.Error("Original and decoded is not the same", matrices[0][0], decoded[0][0])
 	}
 }
