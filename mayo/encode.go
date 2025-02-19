@@ -67,11 +67,17 @@ func decodeMatrix(rows, columns int, bytes []byte) [][]byte {
 
 // TODO: this is not correct according to the spec
 // decodeMatrixList decodes a byte slice into a list of matrices of byte slices
-func decodeMatrixList(m, rows, columns int, bytes []byte) [][][]byte {
+func decodeMatrixList(m, r, c int, bytes []byte, isUpperTriangular bool) [][][]byte {
 	decoded := make([][][]byte, m)
 
-	for i := 0; i < m; i++ {
-		decoded[i] = decodeMatrix(rows, columns, bytes[i*rows*columns:])
+	for i := 0; i < r; i++ {
+		for j := 0; j < c; j++ {
+			if i <= j || !isUpperTriangular {
+				toAppend := make([]byte, m)
+
+				decoded = append(decoded, decodeVec(toAppend)...)
+			}
+		}
 	}
 
 	return decoded
@@ -87,7 +93,7 @@ func encodeMatrixList(r, c int, matrices [][][]byte, isUpperTriangular bool) []b
 				vecToAppend := make([]byte, len(matrices))
 
 				for m := 0; m < len(matrices); m++ {
-					vecToAppend[i] = matrices[m][i][j]
+					vecToAppend[m] = matrices[m][i][j]
 				}
 
 				encoded = append(encoded, encodeVec(vecToAppend)...)
