@@ -155,3 +155,25 @@ func TestEncodeDecodeMatrix(t *testing.T) {
 		}
 	}
 }
+
+func TestDecodeMatrixList(t *testing.T) {
+	rows := 5
+	columns := 5
+	matrix := make([][]byte, rows)
+
+	for i := 0; i < rows; i++ {
+		matrix[i] = make([]byte, columns)
+		reader := rand.Reader
+		_, _ = io.ReadFull(reader, matrix[i])
+		for j, elem := range matrix[i] {
+			matrix[i][j] = elem & 0xf
+		}
+	}
+
+	encoded := encodeMatrix(matrix)
+	decoded := decodeMatrixList(1, rows, columns, encoded)
+
+	if !bytes.Equal(matrix[0], decoded[0][0]) {
+		t.Error("Original and decoded is not the same", matrix[0], decoded[0][0])
+	}
+}

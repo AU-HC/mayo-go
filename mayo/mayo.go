@@ -5,7 +5,6 @@ import (
 	"crypto/cipher"
 	cryptoRand "crypto/rand"
 	"crypto/sha3"
-	"encoding/binary"
 	"fmt"
 	"io"
 	"math"
@@ -98,8 +97,14 @@ func (mayo *Mayo) CompactKeyGen() (*CompactPublicKey, *CompactSecretKey, error) 
 
 	p := aes128ctr(seedPk, mayo.p1Bytes+mayo.p2Bytes)
 
-	p1 := slice(p[:mayo.p1Bytes])
-	p2 := slice(p[mayo.p1Bytes : mayo.p1Bytes+mayo.p2Bytes])
+	p1 := toInt64(p[:mayo.p1Bytes])
+	p2 := toInt64(p[mayo.p1Bytes : mayo.p1Bytes+mayo.p2Bytes])
+
+	expectedp1Size := ((mayo.n - mayo.o) * (mayo.n - mayo.o) * mayo.m) / 8
+	p1Size := len(p1)
+
+	fmt.Println("Expectedp1Size: ", expectedp1Size)
+	fmt.Println("Actual size: ", p1Size)
 
 	for i := 0; i < mayo.m; i++ {
 		p1i := p1[i*mayo.p1Bytes : (i+1)*mayo.p1Bytes]
@@ -112,19 +117,6 @@ func (mayo *Mayo) CompactKeyGen() (*CompactPublicKey, *CompactSecretKey, error) 
 	fmt.Println(p2)
 
 	return &CompactPublicKey{}, &CompactSecretKey{}, nil
-}
-
-func slice(src []byte) []uint64 {
-	dst := make([]uint64, len(src)/8)
-
-	for i := range dst {
-		dst[i] = binary.LittleEndian.Uint64(src)
-		src = src[8:]
-	}
-
-	fmt.Println(len(src))
-
-	return dst
 }
 
 func (mayo *Mayo) Sign() {

@@ -1,5 +1,7 @@
 ﻿package mayo
 
+import "encoding/binary"
+
 // encodeVec encodes a byte slice into a byte slice of half the length
 func encodeVec(bytes []byte) []byte {
 	encoded := make([]byte, (len(bytes)+1)/2)
@@ -38,9 +40,6 @@ func decodeVec(n int, bytes []byte) []byte {
 
 // encodeMatrix encodes a matrix of byte slices into a single byte slice
 func encodeMatrix(bytes [][]byte) []byte {
-	// amountRows := len(bytes)
-	// encodeRowSizeBytes := (len(bytes[0]) + 1) / 2
-
 	var encoded []byte
 
 	for _, row := range bytes {
@@ -52,6 +51,7 @@ func encodeMatrix(bytes [][]byte) []byte {
 	return encoded
 }
 
+// decodeMatrix decodes a byte slice into a matrix of byte slices
 func decodeMatrix(rows, columns int, bytes []byte) [][]byte {
 	flatDecodedMatrix := decodeVec(rows*columns, bytes)
 
@@ -61,4 +61,25 @@ func decodeMatrix(rows, columns int, bytes []byte) [][]byte {
 	}
 
 	return decodedMatrix
+}
+
+func decodeMatrixList(m, rows, columns int, bytes []byte) [][][]byte {
+	decoded := make([][][]byte, m)
+
+	for i := 0; i < m; i++ {
+		decoded[i] = decodeMatrix(rows, columns, bytes[i*rows*columns:])
+	}
+
+	return decoded
+}
+
+func toInt64(src []byte) []uint64 {
+	dst := make([]uint64, len(src)/8)
+
+	for i := range dst {
+		dst[i] = binary.LittleEndian.Uint64(src)
+		src = src[8:]
+	}
+
+	return dst
 }
