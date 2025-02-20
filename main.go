@@ -6,13 +6,19 @@ import (
 )
 
 func main() {
-	mayo := standard.InitMayo(standard.LevelOne)
-	pk, sk, err := mayo.CompactKeyGen()
+	mayo, err := standard.InitMayo(4)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	cpk, csk, err := mayo.CompactKeyGen()
 
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
 
-	fmt.Println(pk, sk)
+	fmt.Println(cpk)
+	fmt.Println(csk)
 }

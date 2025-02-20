@@ -41,7 +41,7 @@ func (mayo *Mayo) CompactKeyGen() ([]byte, []byte, error) {
 	p3 := make([][][]byte, mayo.m)
 
 	for i := 0; i < mayo.m; i++ {
-		p3[i] = multiplyMatrices(ot, addMatrices(multiplyMatrices(p1[i], o), p2[i]))
+		p3[i] = multiplyMatrices(ot, addMatrices(multiplyMatrices(p1[i], o), p2[i])) // TODO: Calculate ot properly
 	}
 
 	var cpk []byte

@@ -1,14 +1,9 @@
 package mayo
 
-import "math"
-
-type SecurityLevel int
-
-const (
-	LevelOne SecurityLevel = iota
-	LevelTwo
-	LevelThree
-	LevelFive
+import (
+	"errors"
+	"fmt"
+	"math"
 )
 
 type Mayo struct {
@@ -18,16 +13,21 @@ type Mayo struct {
 	skSeedBytes, oBytes, vBytes, p1Bytes, p2Bytes, p3Bytes, lBytes, cskBytes, eskBytes, cpkBytes, epkBytes, sigBytes int
 }
 
-func InitMayo(securityLevel SecurityLevel) *Mayo {
-	if securityLevel == LevelOne {
-		return initMayo(86, 78, 8, 10, 16, 24, 32, 16)
-	} else if securityLevel == LevelTwo {
-		return initMayo(81, 64, 17, 4, 16, 24, 32, 16)
-	} else if securityLevel == LevelThree {
-		return initMayo(118, 108, 10, 11, 16, 32, 48, 16)
-	} else { // level five
-		return initMayo(154, 142, 12, 12, 16, 40, 64, 16)
+// InitMayo initializes mayo with the correct parameters according to the specification. Note that
+// mayo has 4 levels: 1, 2, 3, and 5.
+func InitMayo(securityLevel int) (*Mayo, error) {
+	if securityLevel == 1 {
+		return initMayo(86, 78, 8, 10, 16, 24, 32, 16), nil
+	} else if securityLevel == 2 {
+		return initMayo(81, 64, 17, 4, 16, 24, 32, 16), nil
+	} else if securityLevel == 3 {
+		return initMayo(118, 108, 10, 11, 16, 32, 48, 16), nil
+	} else if securityLevel == 5 {
+		return initMayo(154, 142, 12, 12, 16, 40, 64, 16), nil
 	}
+
+	return nil, errors.New(
+		fmt.Sprintf("Wrong security level supplied: '%d'. Must be either '1', '2', '3', or '5'.", securityLevel))
 }
 
 func initMayo(n, m, o, k, q, saltBytes, digestBytes, pkSeedBytes int) *Mayo {
