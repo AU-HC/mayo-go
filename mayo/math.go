@@ -44,6 +44,18 @@ func addMatrices(A, B [][]byte) [][]byte {
 	return C
 }
 
+func transposeMatrix(A [][]byte) [][]byte {
+	rows, cols := len(A), len(A[0])
+	T := make([][]byte, cols)
+	for i := range T {
+		T[i] = make([]byte, rows)
+		for j := range T[i] {
+			T[i][j] = A[j][i]
+		}
+	}
+	return T
+}
+
 func printMatrix(matrix [][]byte) {
 	for _, row := range matrix {
 		fmt.Println(row)

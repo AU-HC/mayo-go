@@ -32,7 +32,6 @@ func (mayo *Mayo) CompactKeyGen() ([]byte, []byte, error) {
 
 	seedPk := s[:mayo.pkSeedBytes]
 	o := decodeMatrix(mayo.n-mayo.o, mayo.o, s[mayo.pkSeedBytes:mayo.pkSeedBytes+mayo.oBytes])
-	ot := decodeMatrix(mayo.o, mayo.n-mayo.o, s[mayo.pkSeedBytes:mayo.pkSeedBytes+mayo.oBytes])
 
 	v := mayo.n - mayo.o
 	p := aes128ctr(seedPk, mayo.p1Bytes+mayo.p2Bytes)
@@ -41,7 +40,7 @@ func (mayo *Mayo) CompactKeyGen() ([]byte, []byte, error) {
 	p3 := make([][][]byte, mayo.m)
 
 	for i := 0; i < mayo.m; i++ {
-		p3[i] = multiplyMatrices(ot, addMatrices(multiplyMatrices(p1[i], o), p2[i])) // TODO: Calculate ot properly
+		p3[i] = multiplyMatrices(transposeMatrix(o), addMatrices(multiplyMatrices(p1[i], o), p2[i])) // TODO: Calculate ot properly
 	}
 
 	var cpk []byte

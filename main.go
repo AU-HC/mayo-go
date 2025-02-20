@@ -6,7 +6,7 @@ import (
 )
 
 func main() {
-	mayo, err := standard.InitMayo(4)
+	mayo, err := standard.InitMayo(1)
 	if err != nil {
 		fmt.Println(err)
 		return

@@ -1,18 +1,19 @@
 package mayo
 
-import "testing"
+import (
+	"reflect"
+	"testing"
+)
 
 func TestMatrixMultiplication(t *testing.T) {
 	A := [][]byte{
 		{1, 2},
 		{3, 4},
 	}
-
 	B := [][]byte{
 		{5, 6},
 		{7, 8},
 	}
-
 	expected := [][]byte{
 		{19, 22},
 		{43, 50},
@@ -20,13 +21,10 @@ func TestMatrixMultiplication(t *testing.T) {
 
 	result := multiplyMatrices(A, B)
 
-	for i := range result {
-		for j := range result[i] {
-			if result[i][j] != expected[i][j] {
-				t.Error("Multiplication failed")
-			}
-		}
+	if !reflect.DeepEqual(result, expected) {
+		t.Error("Multiplication failed")
 	}
+
 }
 
 func TestMatrixAddition(t *testing.T) {
@@ -34,12 +32,10 @@ func TestMatrixAddition(t *testing.T) {
 		{1, 2},
 		{3, 4},
 	}
-
 	B := [][]byte{
 		{5, 6},
 		{7, 8},
 	}
-
 	expected := [][]byte{
 		{6, 8},
 		{10, 12},
@@ -47,11 +43,44 @@ func TestMatrixAddition(t *testing.T) {
 
 	result := addMatrices(A, B)
 
-	for i := range result {
-		for j := range result[i] {
-			if result[i][j] != expected[i][j] {
-				t.Error("Addition failed")
-			}
-		}
+	if !reflect.DeepEqual(result, expected) {
+		t.Error("Addition failed")
+	}
+}
+
+func TestTransposeMatrixForSquareMatrix(t *testing.T) {
+	A := [][]byte{
+		{1, 2, 3},
+		{4, 5, 6},
+		{7, 8, 9},
+	}
+	expected := [][]byte{
+		{1, 4, 7},
+		{2, 5, 8},
+		{3, 6, 9},
+	}
+
+	result := transposeMatrix(A)
+
+	if !reflect.DeepEqual(result, expected) {
+		t.Error("Addition failed")
+	}
+}
+
+func TestTransposeMatrixForNonSquareMatrix(t *testing.T) {
+	A := [][]byte{
+		{1, 2, 3},
+		{4, 5, 6},
+	}
+	expected := [][]byte{
+		{1, 4},
+		{2, 5},
+		{3, 6},
+	}
+
+	result := transposeMatrix(A)
+
+	if !reflect.DeepEqual(result, expected) {
+		t.Error("Addition failed")
 	}
 }
