@@ -52,6 +52,7 @@ func (mayo *Mayo) CompactKeyGen() ([]byte, []byte, error) {
 	return cpk, csk, nil
 }
 
+// ExpandSK (Algorithm 5) takes the compacted secret key csk and outputs an expanded secret key esk
 func (mayo *Mayo) ExpandSK(csk []byte) []byte {
 	// Parse csk
 	seedSk := csk[:mayo.skSeedBytes]
@@ -85,6 +86,18 @@ func (mayo *Mayo) ExpandSK(csk []byte) []byte {
 	esk = append(esk, encodeMatrixList(v, mayo.o, l, false)...)
 
 	return esk
+}
+
+// ExpandPK (Algorithm 6) takes the compacted public key csk and outputs an expanded public key epk
+func (mayo *Mayo) ExpandPK(cpk []byte) []byte {
+	// Parse cpk
+	seedPk := cpk[:mayo.pkSeedBytes]
+
+	// Expand seedPk and return epk
+	var epk []byte
+	epk = append(epk, aes128ctr(seedPk, mayo.p1Bytes+mayo.p2Bytes)...)
+	epk = append(epk, cpk[mayo.pkSeedBytes:mayo.pkSeedBytes+mayo.p3Bytes]...)
+	return epk
 }
 
 func (mayo *Mayo) Sign() {
