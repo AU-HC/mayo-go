@@ -65,7 +65,6 @@ func decodeMatrix(rows, columns int, bytes []byte) [][]byte {
 	return decodedMatrix
 }
 
-// TODO: this is not correct according to the spec
 // decodeMatrixList decodes a byte slice into a list of matrices of byte slices
 func decodeMatrixList(m, r, c int, bytes []byte, isUpperTriangular bool) [][][]byte {
 	// Initialize the list of matrices with zero values
@@ -82,8 +81,8 @@ func decodeMatrixList(m, r, c int, bytes []byte, isUpperTriangular bool) [][][]b
 		for j := 0; j < c; j++ {
 			if i <= j || !isUpperTriangular {
 				// Decode the next vector from the byte slice of nipples
-				originalVecLength := m // Since each column has m elements
-				encodedVecLength := originalVecLength / 2
+				originalVecLength := m                    // Since each column has m elements
+				encodedVecLength := originalVecLength / 2 // TODO: consider odd?
 				decodedVec := decodeVec(m, bytes[index:index+encodedVecLength])
 				index += encodedVecLength
 
@@ -101,13 +100,14 @@ func decodeMatrixList(m, r, c int, bytes []byte, isUpperTriangular bool) [][][]b
 // encodeMatrixList encodes a list of matrices of byte slices into a single byte slice. Makes use of the isUpperTriangular flag to encode only the upper triangular part of the matrices
 func encodeMatrixList(r, c int, matrices [][][]byte, isUpperTriangular bool) []byte {
 	var encoded []byte
+	m := len(matrices)
 
 	for i := 0; i < r; i++ {
 		for j := 0; j < c; j++ {
 			if i <= j || !isUpperTriangular {
-				vecToAppend := make([]byte, len(matrices))
+				vecToAppend := make([]byte, m)
 
-				for k := 0; k < len(matrices); k++ {
+				for k := 0; k < m; k++ {
 					vecToAppend[k] = matrices[k][i][j]
 				}
 

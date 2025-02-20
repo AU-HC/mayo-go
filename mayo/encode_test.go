@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/rand"
 	"io"
+	"reflect"
 	"testing"
 )
 
@@ -200,11 +201,7 @@ func TestEncodeDecodeMatrixListNonUpperTriangular(t *testing.T) {
 	encoded := encodeMatrixList(rows, columns, matrices, false)
 	decoded := decodeMatrixList(2, rows, columns, encoded, false)
 
-	for i := 0; i < m; i++ {
-		for j := 0; j < rows; j++ {
-			if !bytes.Equal(matrices[i][j], decoded[i][j]) {
-				t.Error("Original and decoded is not the same", matrices[i][j], decoded[i][j])
-			}
-		}
+	if !reflect.DeepEqual(matrices, decoded) {
+		t.Error("Original and decoded is not the same", matrices, decoded)
 	}
 }
