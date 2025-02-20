@@ -18,6 +18,9 @@ func main() {
 		return
 	}
 
+	esk := mayo.ExpandSK(csk)
+
 	fmt.Println(cpk)
 	fmt.Println(csk)
+	fmt.Println(esk)
 }

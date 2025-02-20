@@ -62,7 +62,8 @@ func (mayo *Mayo) ExpandSK(csk []byte) []byte {
 	_, _ = h.Write(seedSk[:mayo.pkSeedBytes])
 	_, _ = h.Read(s[:])
 	seedPk := s[:mayo.pkSeedBytes]
-	o := decodeMatrix(mayo.n-mayo.o, mayo.o, s[mayo.pkSeedBytes:mayo.pkSeedBytes+mayo.oBytes])
+	oByteString := s[mayo.pkSeedBytes : mayo.pkSeedBytes+mayo.oBytes]
+	o := decodeMatrix(mayo.n-mayo.o, mayo.o, oByteString)
 
 	// Derive P1 and P2 from seedPk
 	v := mayo.n - mayo.o
@@ -76,7 +77,14 @@ func (mayo *Mayo) ExpandSK(csk []byte) []byte {
 		l[i] = addMatrices(multiplyMatrices(addMatrices(p1[i], transposeMatrix(p1[i])), o), p2[i])
 	}
 
-	return nil
+	// Encode L and output esk
+	var esk []byte
+	esk = append(esk, seedSk...)
+	esk = append(esk, oByteString...)
+	esk = append(esk, p[:mayo.p1Bytes]...)
+	esk = append(esk, encodeMatrixList(v, mayo.o, l, false)...)
+
+	return esk
 }
 
 func (mayo *Mayo) Sign() {
