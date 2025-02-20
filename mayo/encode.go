@@ -1,9 +1,5 @@
 package mayo
 
-import (
-	"encoding/binary"
-)
-
 // encodeVec encodes a byte slice into a byte slice of half the length
 func encodeVec(bytes []byte) []byte {
 	encoded := make([]byte, (len(bytes)+1)/2)
@@ -119,14 +115,8 @@ func encodeMatrixList(r, c int, matrices [][][]byte, isUpperTriangular bool) []b
 	return encoded
 }
 
-// toInt64 converts a byte slice into a slice of uint64
-func toInt64(src []byte) []uint64 {
-	dst := make([]uint64, len(src)/8)
-
-	for i := range dst {
-		dst[i] = binary.LittleEndian.Uint64(src)
-		src = src[8:]
-	}
-
-	return dst
+func vecToMatrix(vec []byte) [][]byte {
+	matrix := make([][]byte, 1)
+	matrix[0] = vec
+	return matrix
 }

@@ -1,20 +1,25 @@
 package mayo
 
 import (
-	"crypto/aes"
-	"crypto/cipher"
 	cryptoRand "crypto/rand"
 	"crypto/sha3"
 	"io"
+	"math"
+	"reflect"
 )
 
-func aes128ctr(seed []byte, l int) []byte {
-	var nonce [16]byte
-	block, _ := aes.NewCipher(seed[:])
-	ctr := cipher.NewCTR(block, nonce[:])
-	dst := make([]byte, l)
-	ctr.XORKeyStream(dst[:], dst[:]) // TODO: should this just be all zeroes?
-	return dst
+func generateZeroMatrix(rows, columns int) [][]byte {
+	matrix := make([][]byte, rows)
+
+	for i := 0; i < rows; i++ {
+		matrix[i] = generateZeroVector(columns)
+	}
+
+	return matrix
+}
+
+func generateZeroVector(size int) []byte {
+	return make([]byte, size)
 }
 
 // CompactKeyGen (Algorithm 4) outputs compact representation of a secret key csk and public key cpk. Will instead return an error, if
@@ -27,10 +32,7 @@ func (mayo *Mayo) CompactKeyGen() ([]byte, []byte, error) {
 		return nil, nil, err
 	}
 
-	s := make([]byte, mayo.pkSeedBytes+mayo.oBytes)
-	h := sha3.NewSHAKE256()
-	_, _ = h.Write(seedSk[:])
-	_, _ = h.Read(s[:])
+	s := shake256(mayo.pkSeedBytes+mayo.oBytes, seedSk)
 	seedPk := s[:mayo.pkSeedBytes]
 	o := decodeMatrix(mayo.n-mayo.o, mayo.o, s[mayo.pkSeedBytes:mayo.pkSeedBytes+mayo.oBytes])
 
@@ -44,7 +46,7 @@ func (mayo *Mayo) CompactKeyGen() ([]byte, []byte, error) {
 		p3[i] = multiplyMatrices(transposeMatrix(o), addMatrices(multiplyMatrices(p1[i], o), p2[i]))
 	}
 
-	var cpk []byte
+	var cpk []byte // TODO: is this a slow way of appended bytes? (General for entire file)
 	cpk = append(cpk, seedPk...)
 	cpk = append(cpk, encodeMatrixList(mayo.o, mayo.o, p3, true)...)
 	csk := seedSk
@@ -100,10 +102,146 @@ func (mayo *Mayo) ExpandPK(cpk []byte) []byte {
 	return epk
 }
 
-func (mayo *Mayo) Sign() {
+// Sign (Algorithm 7) takes an expanded secret key esk and a message m and outputs a signature on the message m
+func (mayo *Mayo) Sign(esk, m []byte) []byte {
+	// Decode esk
+	seedSk := esk[:mayo.skSeedBytes]
+	O := decodeMatrix(mayo.v, mayo.o, esk[mayo.skSeedBytes:mayo.skSeedBytes+mayo.oBytes])
+	P1 := decodeMatrixList(mayo.m, mayo.v, mayo.v, esk[mayo.skSeedBytes+mayo.oBytes:mayo.skSeedBytes+mayo.oBytes+mayo.p1Bytes], true)
+	L := decodeMatrixList(mayo.m, mayo.v, mayo.o, esk[mayo.skSeedBytes+mayo.oBytes+mayo.p1Bytes:mayo.eskBytes], false)
 
+	// TODO: Fix this matrix according to spec
+	//E := generateZeroMatrix(len(m), len(m))
+
+	// Hash the message, and derive salt and t
+	mDigest := shake256(mayo.digestBytes, m)
+	R := make([]byte, mayo.rBytes) // TODO: add randomization?
+	salt := shake256(mayo.saltBytes, mDigest, R, seedSk)
+	t := decodeVec(mayo.m, shake256(int(math.Ceil(float64(mayo.m)*math.Log2(float64(mayo.q))/8.0)), mDigest))
+
+	// Attempt to find a preimage for t
+	var x []byte
+	var hasSolution bool
+	v := make([][]byte, mayo.k)
+	for ctr := 0; ctr < 256; ctr++ {
+		// Derive v_i and r
+		V := shake256(mayo.k*mayo.vBytes + int(math.Ceil(float64(mayo.k)*float64(mayo.o)*math.Log2(float64(mayo.q))/8)))
+		for i := 0; i < mayo.k; i++ {
+			v[i] = decodeVec(mayo.n-mayo.o, V[i*mayo.vBytes:(i+1)*mayo.vBytes])
+		}
+		r := decodeVec(mayo.k*mayo.o, V[mayo.k*mayo.vBytes:mayo.k*mayo.vBytes+int(math.Ceil(float64(mayo.k)*float64(mayo.o)*math.Log2(float64(mayo.q))/8))])
+
+		// Build linear system Ax = y
+		A := generateZeroMatrix(len(m), mayo.k*mayo.o)
+		y := t
+		l := 0
+
+		M := make([][][]byte, mayo.k)
+		for i := 0; i < mayo.k; i++ {
+			mi := generateZeroMatrix(len(m), mayo.o)
+
+			for j := 0; j < len(m); j++ {
+				viMatrix := vecToMatrix(v[i])
+				// TODO: Check dimensions
+				mi[j] = multiplyMatrices(transposeMatrix(viMatrix), L[j])[0]
+			}
+
+			M[i] = mi
+		}
+
+		for i := 0; i < mayo.k; i++ {
+			for j := mayo.k - 1; j >= i; j-- {
+				u := make([]byte, len(m))
+
+				if i == j {
+					for a := 0; a < len(m); a++ {
+						vMatrix := vecToMatrix(v[i])
+						// TODO: Check dimensions
+						u[a] = multiplyMatrices(multiplyMatrices(transposeMatrix(vMatrix), P1[a]), vMatrix)[0][0]
+					}
+				} else {
+					for a := 0; a < len(m); a++ {
+						viMatrix := vecToMatrix(v[i])
+						vjMatrix := vecToMatrix(v[j])
+						// TODO: Check dimensions
+						u[a] = addMatrices(
+							multiplyMatrices(multiplyMatrices(transposeMatrix(viMatrix), P1[a]), vjMatrix),
+							multiplyMatrices(multiplyMatrices(transposeMatrix(vjMatrix), P1[a]), viMatrix))[0][0]
+					}
+				}
+
+				// TODO: Fix
+				y = y
+
+				if i != j {
+
+				}
+
+				l = l + 1
+			}
+		}
+
+		// Try to solve the system
+		x, hasSolution = sampleSolution(A, y, r)
+		if hasSolution {
+			break
+		}
+	}
+
+	// Finish and output the signature
+	var s []byte
+	Ox := multiplyMatrices(O, vecToMatrix(x))
+	for i := 0; i < mayo.k; i++ {
+		OxIndexed := multiplyMatrices(vecToMatrix(v[i]), Ox[i*mayo.o:(i+1)*mayo.o])[0] // TODO: Take row or column?
+		s = append(s, OxIndexed...)
+		s = append(s, x[i*mayo.o:(i+1)*mayo.o]...)
+	}
+	var sig []byte
+	sig = append(sig, encodeVec(s)...)
+	sig = append(sig, salt...)
+	return sig
 }
 
-func (mayo *Mayo) Verify() {
+// Verify (Algorithm 8) takes an expanded public key, message m, and signature sig and outputs an integer to indicate
+// if the signature is valid on m. Specifically if the signature is valid it will output 0, if invalid < 0.
+func (mayo *Mayo) Verify(epk, m, sig []byte) int {
+	// Decode epk
+	/*
+		v := mayo.n - mayo.o
+		P1ByteString := epk[:mayo.p1Bytes]
+		P2ByteString := epk[mayo.p1Bytes : mayo.p1Bytes+mayo.p2Bytes]
+		P3ByteString := epk[mayo.p1Bytes+mayo.p2Bytes : mayo.p1Bytes+mayo.p2Bytes+mayo.p3Bytes]
+		P1 := decodeMatrixList(mayo.m, v, v, P1ByteString, true)
+		P2 := decodeMatrixList(mayo.m, v, mayo.o, P2ByteString, false)
+		P3 := decodeMatrixList(mayo.m, mayo.o, mayo.o, P3ByteString, true)
 
+	*/
+
+	// Decode sig
+	nkHalf := int(math.Ceil(float64(mayo.n) * float64(mayo.k) / 2.0))
+	salt := sig[nkHalf : nkHalf+mayo.saltBytes]
+	s := decodeVec(mayo.k*mayo.n, sig)
+	si := make([][]byte, mayo.k)
+	for i := 0; i < mayo.k; i++ {
+		si[i] = s[i*mayo.n : (i+1)*mayo.n]
+	}
+
+	// Hash the message and derive t
+	mDigest := shake256(mayo.digestBytes, m)
+	t := decodeVec(mayo.m, shake256(int(math.Ceil(float64(mayo.m)*math.Log2(float64(mayo.q))/8)), mDigest, salt))
+
+	// Compute P^*(s)
+	y := make([]byte, mayo.m)
+	l := 0
+	for i := 0; i < mayo.k; i++ {
+		for j := mayo.k - 1; j >= i; j-- {
+			l++ // TODO: fix this
+		}
+	}
+
+	// Accept the signature if y = t
+	if reflect.DeepEqual(y, t) { // TODO: is it fine to use reflect or too slow?
+		return 0
+	}
+	return -1
 }

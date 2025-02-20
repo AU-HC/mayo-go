@@ -56,6 +56,10 @@ func transposeMatrix(A [][]byte) [][]byte {
 	return T
 }
 
+func sampleSolution(A [][]byte, y []byte, r []byte) ([]byte, bool) {
+	return nil, false
+}
+
 func printMatrix(matrix [][]byte) {
 	for _, row := range matrix {
 		fmt.Println(row)
