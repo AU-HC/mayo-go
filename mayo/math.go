@@ -50,7 +50,7 @@ func subMatrices(A, B [][]byte) [][]byte {
 
 	// TODO: Remove this check
 	if rowsA != rowsB || colsA != colsB {
-		panic("Cannot sub matrices")
+		panic(fmt.Sprintf("Cannot sub matrices (%d, %d), (%d, %d)", rowsA, rowsB, colsA, colsB))
 	}
 
 	C := make([][]byte, rowsA)

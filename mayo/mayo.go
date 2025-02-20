@@ -12,14 +12,10 @@ func generateZeroMatrix(rows, columns int) [][]byte {
 	matrix := make([][]byte, rows)
 
 	for i := 0; i < rows; i++ {
-		matrix[i] = generateZeroVector(columns)
+		matrix[i] = make([]byte, columns)
 	}
 
 	return matrix
-}
-
-func generateZeroVector(size int) []byte {
-	return make([]byte, size)
 }
 
 // CompactKeyGen (Algorithm 4) outputs compact representation of a secret key csk and public key cpk. Will instead return an error, if
@@ -132,15 +128,15 @@ func (mayo *Mayo) Sign(esk, m []byte) []byte {
 		r := decodeVec(mayo.k*mayo.o, V[mayo.k*mayo.vBytes:mayo.k*mayo.vBytes+int(math.Ceil(float64(mayo.k)*float64(mayo.o)*math.Log2(float64(mayo.q))/8))])
 
 		// Build linear system Ax = y
-		A := generateZeroMatrix(len(m), mayo.k*mayo.o)
+		A := generateZeroMatrix(mayo.m, mayo.k*mayo.o)
 		y := t
 		l := 0
 
 		M := make([][][]byte, mayo.k)
 		for i := 0; i < mayo.k; i++ {
-			mi := generateZeroMatrix(len(m), mayo.o)
+			mi := generateZeroMatrix(mayo.m, mayo.o)
 
-			for j := 0; j < len(m); j++ {
+			for j := 0; j < mayo.m; j++ {
 				mi[j] = multiplyMatrices(transposeMatrix(vecToMatrix(v[i])), L[j])[0]
 			}
 
@@ -149,15 +145,15 @@ func (mayo *Mayo) Sign(esk, m []byte) []byte {
 
 		for i := 0; i < mayo.k; i++ {
 			for j := mayo.k - 1; j >= i; j-- {
-				u := make([]byte, len(m))
+				u := make([]byte, mayo.m)
 
 				if i == j {
-					for a := 0; a < len(m); a++ {
+					for a := 0; a < mayo.m; a++ {
 						vMatrix := vecToMatrix(v[i])
 						u[a] = multiplyMatrices(multiplyMatrices(transposeMatrix(vMatrix), P1[a]), vMatrix)[0][0]
 					}
 				} else {
-					for a := 0; a < len(m); a++ {
+					for a := 0; a < mayo.m; a++ {
 						viMatrix := vecToMatrix(v[i])
 						vjMatrix := vecToMatrix(v[j])
 						u[a] = addMatrices(
