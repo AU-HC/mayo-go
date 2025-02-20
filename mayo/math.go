@@ -8,7 +8,7 @@ func multiplyMatrices(A, B [][]byte) [][]byte {
 	rowsB, colsB := len(B), len(B[0])
 
 	if colsA != rowsB {
-		panic("Cannot multiply matrices")
+		panic(fmt.Sprintf("Cannot multiply matrices colsA: '%d', rowsB: '%d'", colsA, rowsB))
 	}
 
 	C := make([][]byte, rowsA)

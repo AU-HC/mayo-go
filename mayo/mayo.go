@@ -5,15 +5,8 @@ import (
 	"crypto/cipher"
 	cryptoRand "crypto/rand"
 	"crypto/sha3"
-	"fmt"
 	"io"
 )
-
-type CompactPublicKey struct {
-}
-
-type CompactSecretKey struct {
-}
 
 func aes128ctr(seed []byte, l int) []byte {
 	var nonce [16]byte
@@ -24,7 +17,7 @@ func aes128ctr(seed []byte, l int) []byte {
 	return dst
 }
 
-func (mayo *Mayo) CompactKeyGen() (*CompactPublicKey, *CompactSecretKey, error) {
+func (mayo *Mayo) CompactKeyGen() ([]byte, []byte, error) {
 	seedSk := make([]byte, mayo.skSeedBytes)
 	rand := cryptoRand.Reader // TODO: refactor this prob
 	_, err := io.ReadFull(rand, seedSk[:])
@@ -39,22 +32,24 @@ func (mayo *Mayo) CompactKeyGen() (*CompactPublicKey, *CompactSecretKey, error) 
 
 	seedPk := s[:mayo.pkSeedBytes]
 	o := decodeMatrix(mayo.n-mayo.o, mayo.o, s[mayo.pkSeedBytes:mayo.pkSeedBytes+mayo.oBytes])
-
-	fmt.Println(o)
+	ot := decodeMatrix(mayo.o, mayo.n-mayo.o, s[mayo.pkSeedBytes:mayo.pkSeedBytes+mayo.oBytes])
 
 	v := mayo.n - mayo.o
 	p := aes128ctr(seedPk, mayo.p1Bytes+mayo.p2Bytes)
 	p1 := decodeMatrixList(mayo.m, v, v, p[:mayo.p1Bytes], true)
 	p2 := decodeMatrixList(mayo.m, v, mayo.o, p[mayo.p1Bytes:mayo.p1Bytes+mayo.p2Bytes], false)
+	p3 := make([][][]byte, mayo.m)
 
 	for i := 0; i < mayo.m; i++ {
-		p1i := p1[i*mayo.p1Bytes : (i+1)*mayo.p1Bytes]
-		p2i := p2[i*mayo.p2Bytes : (i+1)*mayo.p2Bytes]
-		fmt.Println(p1i)
-		fmt.Println(p2i)
+		p3[i] = multiplyMatrices(ot, addMatrices(multiplyMatrices(p1[i], o), p2[i]))
 	}
 
-	return &CompactPublicKey{}, &CompactSecretKey{}, nil
+	var cpk []byte
+	cpk = append(cpk, seedPk...)
+	cpk = append(cpk, encodeMatrixList(mayo.o, mayo.o, p3, true)...)
+	csk := seedPk
+
+	return cpk, csk, nil
 }
 
 func (mayo *Mayo) Sign() {
