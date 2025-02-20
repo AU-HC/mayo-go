@@ -29,7 +29,7 @@ func (mayo *Mayo) CompactKeyGen() ([]byte, []byte, error) {
 
 	s := make([]byte, mayo.pkSeedBytes+mayo.oBytes)
 	h := sha3.NewSHAKE256()
-	_, _ = h.Write(seedSk[:mayo.pkSeedBytes])
+	_, _ = h.Write(seedSk[:])
 	_, _ = h.Read(s[:])
 	seedPk := s[:mayo.pkSeedBytes]
 	o := decodeMatrix(mayo.n-mayo.o, mayo.o, s[mayo.pkSeedBytes:mayo.pkSeedBytes+mayo.oBytes])
