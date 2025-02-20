@@ -141,7 +141,7 @@ func (mayo *Mayo) Sign(esk, m []byte) []byte {
 			mi := generateZeroMatrix(len(m), mayo.o)
 
 			for j := 0; j < len(m); j++ {
-				mi[j] = multiplyMatrices(transposeMatrix(vecToMatrix(v[i])), L[j])[0] // TODO: Check dimensions
+				mi[j] = multiplyMatrices(transposeMatrix(vecToMatrix(v[i])), L[j])[0]
 			}
 
 			M[i] = mi
@@ -154,17 +154,16 @@ func (mayo *Mayo) Sign(esk, m []byte) []byte {
 				if i == j {
 					for a := 0; a < len(m); a++ {
 						vMatrix := vecToMatrix(v[i])
-						// TODO: Check dimensions
 						u[a] = multiplyMatrices(multiplyMatrices(transposeMatrix(vMatrix), P1[a]), vMatrix)[0][0]
 					}
 				} else {
 					for a := 0; a < len(m); a++ {
 						viMatrix := vecToMatrix(v[i])
 						vjMatrix := vecToMatrix(v[j])
-						// TODO: Check dimensions
 						u[a] = addMatrices(
 							multiplyMatrices(multiplyMatrices(transposeMatrix(viMatrix), P1[a]), vjMatrix),
-							multiplyMatrices(multiplyMatrices(transposeMatrix(vjMatrix), P1[a]), viMatrix))[0][0]
+							multiplyMatrices(multiplyMatrices(transposeMatrix(vjMatrix), P1[a]), viMatrix),
+						)[0][0]
 					}
 				}
 
@@ -180,7 +179,7 @@ func (mayo *Mayo) Sign(esk, m []byte) []byte {
 		}
 
 		// Try to solve the system
-		x, hasSolution = sampleSolution(A, y, r)
+		x, hasSolution = mayo.SampleSolution(A, y, r)
 		if hasSolution {
 			break
 		}
