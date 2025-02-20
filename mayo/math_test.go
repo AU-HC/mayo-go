@@ -84,3 +84,21 @@ func TestTransposeMatrixForNonSquareMatrix(t *testing.T) {
 		t.Error("Addition failed")
 	}
 }
+
+func TestTransposeMatrixForVectorizedMatrix(t *testing.T) {
+	A := []byte{1, 2, 3, 4, 5, 6}
+	expected := [][]byte{
+		{1},
+		{2},
+		{3},
+		{4},
+		{5},
+		{6},
+	}
+
+	result := transposeMatrix(vecToMatrix(A))
+
+	if !reflect.DeepEqual(result, expected) {
+		t.Error("Addition failed")
+	}
+}

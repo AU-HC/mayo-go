@@ -116,7 +116,9 @@ func encodeMatrixList(r, c int, matrices [][][]byte, isUpperTriangular bool) []b
 }
 
 func vecToMatrix(vec []byte) [][]byte {
-	matrix := make([][]byte, 1)
-	matrix[0] = vec
+	matrix := make([][]byte, len(vec))
+	for i, elem := range vec {
+		matrix[i] = []byte{elem}
+	}
 	return matrix
 }

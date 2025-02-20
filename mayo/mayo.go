@@ -141,9 +141,7 @@ func (mayo *Mayo) Sign(esk, m []byte) []byte {
 			mi := generateZeroMatrix(len(m), mayo.o)
 
 			for j := 0; j < len(m); j++ {
-				viMatrix := vecToMatrix(v[i])
-				// TODO: Check dimensions
-				mi[j] = multiplyMatrices(transposeMatrix(viMatrix), L[j])[0]
+				mi[j] = multiplyMatrices(transposeMatrix(vecToMatrix(v[i])), L[j])[0] // TODO: Check dimensions
 			}
 
 			M[i] = mi
