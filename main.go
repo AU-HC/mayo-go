@@ -13,7 +13,6 @@ func main() {
 	}
 
 	cpk, csk, err := mayo.CompactKeyGen()
-
 	if err != nil {
 		fmt.Println(err)
 		return

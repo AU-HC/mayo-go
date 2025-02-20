@@ -17,6 +17,8 @@ func aes128ctr(seed []byte, l int) []byte {
 	return dst
 }
 
+// CompactKeyGen (Algorithm 4) outputs compact representation of a secret key csk and public key cpk. Will instead return an error, if
+// it fails to generate random bytes.
 func (mayo *Mayo) CompactKeyGen() ([]byte, []byte, error) {
 	seedSk := make([]byte, mayo.skSeedBytes)
 	rand := cryptoRand.Reader // TODO: refactor this prob
@@ -40,13 +42,13 @@ func (mayo *Mayo) CompactKeyGen() ([]byte, []byte, error) {
 	p3 := make([][][]byte, mayo.m)
 
 	for i := 0; i < mayo.m; i++ {
-		p3[i] = multiplyMatrices(transposeMatrix(o), addMatrices(multiplyMatrices(p1[i], o), p2[i])) // TODO: Calculate ot properly
+		p3[i] = multiplyMatrices(transposeMatrix(o), addMatrices(multiplyMatrices(p1[i], o), p2[i]))
 	}
 
 	var cpk []byte
 	cpk = append(cpk, seedPk...)
 	cpk = append(cpk, encodeMatrixList(mayo.o, mayo.o, p3, true)...)
-	csk := seedPk
+	csk := seedSk
 
 	return cpk, csk, nil
 }
