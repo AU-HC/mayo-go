@@ -3,7 +3,6 @@ package mayo
 import (
 	"bytes"
 	cryptoRand "crypto/rand"
-	"crypto/sha3"
 	"fmt"
 	"io"
 	"math"
@@ -57,10 +56,7 @@ func (mayo *Mayo) ExpandSK(csk []byte) []byte {
 	seedSk := csk[:mayo.skSeedBytes]
 
 	// Derive seedPk and O from seedSk
-	s := make([]byte, mayo.pkSeedBytes+mayo.oBytes)
-	h := sha3.NewSHAKE256()
-	_, _ = h.Write(seedSk[:mayo.pkSeedBytes])
-	_, _ = h.Read(s[:])
+	s := shake256(mayo.pkSeedBytes+mayo.oBytes, seedSk[:mayo.pkSeedBytes])
 	seedPk := s[:mayo.pkSeedBytes]
 	oByteString := s[mayo.pkSeedBytes : mayo.pkSeedBytes+mayo.oBytes]
 	o := decodeMatrix(mayo.n-mayo.o, mayo.o, oByteString)
