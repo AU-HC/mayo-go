@@ -205,7 +205,7 @@ func (mayo *Mayo) EchelonForm(B [][]byte) [][]byte {
 		B[pivotRow], B[nextPivotRow] = B[nextPivotRow], B[pivotRow]
 
 		// Make the leading entry a 1
-		B[pivotRow] = multiplyVecConstant(mayo.invTable[B[pivotRow][pivotColumn]], B[pivotRow])
+		B[pivotRow] = multiplyVecConstant(mayo.invTable[B[pivotRow][pivotColumn]%byte(0xF)], B[pivotRow])
 
 		// Eliminate entries below the pivot
 		for row := nextPivotRow + 1; row < mayo.m; row++ {
