@@ -4,6 +4,7 @@ import (
 	"bytes"
 	cryptoRand "crypto/rand"
 	"crypto/sha3"
+	"fmt"
 	"io"
 	"math"
 )
@@ -192,7 +193,7 @@ func (mayo *Mayo) Sign(esk, m []byte) []byte {
 	var s []byte
 	for i := 0; i < mayo.k; i++ {
 		xIndexed := x[i*mayo.o : (i+1)*mayo.o]
-		viOx := transposeMatrix(addMatrices(vecToMatrix(v[i]), multiplyMatrices(O, vecToMatrix(xIndexed))))[0]
+		viOx := transposeMatrix(addMatrices(vecToMatrix(v[i]), multiplyMatrices(O, vecToMatrix(xIndexed))))[0] // TODO: make this more efficient
 		s = append(s, viOx...)
 		s = append(s, xIndexed...)
 	}
@@ -206,16 +207,13 @@ func (mayo *Mayo) Sign(esk, m []byte) []byte {
 // if the signature is valid on m. Specifically if the signature is valid it will output 0, if invalid < 0.
 func (mayo *Mayo) Verify(epk, m, sig []byte) int {
 	// Decode epk
-	/*
-		v := mayo.n - mayo.o
-		P1ByteString := epk[:mayo.p1Bytes]
-		P2ByteString := epk[mayo.p1Bytes : mayo.p1Bytes+mayo.p2Bytes]
-		P3ByteString := epk[mayo.p1Bytes+mayo.p2Bytes : mayo.p1Bytes+mayo.p2Bytes+mayo.p3Bytes]
-		P1 := decodeMatrixList(mayo.m, v, v, P1ByteString, true)
-		P2 := decodeMatrixList(mayo.m, v, mayo.o, P2ByteString, false)
-		P3 := decodeMatrixList(mayo.m, mayo.o, mayo.o, P3ByteString, true)
-
-	*/
+	v := mayo.n - mayo.o
+	P1ByteString := epk[:mayo.p1Bytes]
+	P2ByteString := epk[mayo.p1Bytes : mayo.p1Bytes+mayo.p2Bytes]
+	P3ByteString := epk[mayo.p1Bytes+mayo.p2Bytes : mayo.p1Bytes+mayo.p2Bytes+mayo.p3Bytes]
+	P1 := decodeMatrixList(mayo.m, v, v, P1ByteString, true)
+	P2 := decodeMatrixList(mayo.m, v, mayo.o, P2ByteString, false)
+	P3 := decodeMatrixList(mayo.m, mayo.o, mayo.o, P3ByteString, true)
 
 	// Decode sig
 	nkHalf := int(math.Ceil(float64(mayo.n) * float64(mayo.k) / 2.0))
@@ -231,11 +229,19 @@ func (mayo *Mayo) Verify(epk, m, sig []byte) int {
 	t := decodeVec(mayo.m, shake256(int(math.Ceil(float64(mayo.m)*math.Log2(float64(mayo.q))/8)), mDigest, salt))
 
 	// Compute P^*(s)
+	P := mayo.calculateP(P1, P2, P3)
 	y := make([]byte, mayo.m)
 	l := 0
 	for i := 0; i < mayo.k; i++ {
 		for j := mayo.k - 1; j >= i; j-- {
-			l++ // TODO: fix this
+			var u byte
+			if i == j {
+				u = multiplyMatrices(multiplyMatrices(transposeMatrix(vecToMatrix(si[i])), P), vecToMatrix(si[i]))[0][0]
+			} else {
+
+			}
+			fmt.Println(u)
+			l++
 		}
 	}
 
@@ -244,4 +250,40 @@ func (mayo *Mayo) Verify(epk, m, sig []byte) int {
 		return 0
 	}
 	return -1
+}
+
+func (mayo *Mayo) calculateP(P1, P2, P3 [][][]byte) [][][]byte {
+	P := make([][][]byte, mayo.m)
+	for i := 0; i < mayo.m; i++ {
+		P[i] = make([][]byte, mayo.n)
+		for j := 0; j < mayo.n; j++ {
+			P[i][j] = make([]byte, mayo.n)
+		}
+	}
+
+	p1i, p2i, p3i := 0, 0, 0
+	for i := 0; i < mayo.m; i++ {
+		for r := 0; r < mayo.v; r++ {
+			for c := r; c < mayo.v; c++ {
+				P[i][r] = P1[i][p1i]
+				p1i++
+			}
+			for c := mayo.v; c < mayo.n; c++ {
+				P[i][r] = P2[i][p2i]
+				p2i++
+			}
+			p1i, p2i = 0, 0
+		}
+	}
+	for i := 0; i < mayo.m; i++ {
+		for r := mayo.v; r < mayo.n; r++ {
+			for c := r; c < mayo.n; c++ {
+				P[i][r] = P3[i][p3i]
+				p3i++
+			}
+			p3i = 0
+		}
+	}
+
+	return P
 }
