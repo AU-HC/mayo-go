@@ -117,8 +117,10 @@ func multiplyVecConstant(b byte, a []byte) []byte {
 	return C
 }
 
-func inverseElement(a byte, q int) byte {
+func (mayo *Mayo) inverseElement(a byte, q int) byte {
 	qByte := byte(q)
+
+	a = a % qByte
 
 	for x := byte(0); x < qByte; x++ {
 		if gf16Mul(a, x) == 1 {
@@ -131,7 +133,7 @@ func inverseElement(a byte, q int) byte {
 
 func gf16Mul(a, b byte) byte {
 	var p byte = 0
-	const modulus byte = 0b10011 // Irreducible polynomial x^4 + x + 1
+	const modulus byte = 0xF // Irreducible polynomial x^4 + x + 1
 
 	// Polynomial multiplication with reduction
 	for i := 0; i < 4; i++ {
@@ -203,7 +205,7 @@ func (mayo *Mayo) EchelonForm(B [][]byte) [][]byte {
 		B[pivotRow], B[nextPivotRow] = B[nextPivotRow], B[pivotRow]
 
 		// Make the leading entry a 1
-		B[pivotRow] = multiplyVecConstant(inverseElement(B[pivotRow][pivotColumn], mayo.q), B[pivotRow])
+		B[pivotRow] = multiplyVecConstant(mayo.invTable[B[pivotRow][pivotColumn]], B[pivotRow])
 
 		// Eliminate entries below the pivot
 		for row := nextPivotRow + 1; row < mayo.m; row++ {

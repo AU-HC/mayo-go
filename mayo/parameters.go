@@ -14,6 +14,9 @@ type Mayo struct {
 	E                                                                                                                        [][]byte
 	// Lastly we have variables that are not defined in the spec, but help make the code more readable
 	v int
+
+	mulTable [][]byte
+	invTable []byte
 }
 
 // InitMayo initializes mayo with the correct parameters according to the specification. Note that
@@ -31,6 +34,23 @@ func InitMayo(securityLevel int) (*Mayo, error) {
 
 	return nil, errors.New(
 		fmt.Sprintf("Wrong security level supplied: '%d'. Must be either '1', '2', '3', or '5'.", securityLevel))
+}
+
+func generateMulTable() ([][]byte, []byte) {
+	mulTable := make([][]byte, 16)
+	invTable := make([]byte, 16)
+
+	for i := 0; i < 16; i++ {
+		mulTable[i] = make([]byte, 16)
+		for j := 0; j < 16; j++ {
+			mulTable[i][j] = gf16Mul(byte(i), byte(j))
+
+			if mulTable[i][j] == 1 {
+				invTable[i] = byte(j)
+			}
+		}
+	}
+	return mulTable, invTable
 }
 
 func initMayo(n, m, o, k, q, saltBytes, digestBytes, pkSeedBytes int) *Mayo {
@@ -52,6 +72,8 @@ func initMayo(n, m, o, k, q, saltBytes, digestBytes, pkSeedBytes int) *Mayo {
 	epkBytes := p1Bytes + p2Bytes + p3Bytes
 	sigBytes := int(math.Ceil(float64(n*k)/2.0)) + saltBytes
 	E := make([][]byte, q) // TODO: Generate this multiplication table
+
+	mulTable, invTable := generateMulTable()
 
 	v := n - o
 
@@ -80,5 +102,7 @@ func initMayo(n, m, o, k, q, saltBytes, digestBytes, pkSeedBytes int) *Mayo {
 		rBytes:      skSeedBytes,
 		E:           E,
 		v:           v,
+		invTable:    invTable,
+		mulTable:    mulTable,
 	}
 }
