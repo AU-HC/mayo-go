@@ -1,11 +1,11 @@
 package mayo
 
 import (
+	"bytes"
 	cryptoRand "crypto/rand"
 	"crypto/sha3"
 	"io"
 	"math"
-	"reflect"
 )
 
 func generateZeroMatrix(rows, columns int) [][]byte {
@@ -106,9 +106,6 @@ func (mayo *Mayo) Sign(esk, m []byte) []byte {
 	P1 := decodeMatrixList(mayo.m, mayo.v, mayo.v, esk[mayo.skSeedBytes+mayo.oBytes:mayo.skSeedBytes+mayo.oBytes+mayo.p1Bytes], true)
 	L := decodeMatrixList(mayo.m, mayo.v, mayo.o, esk[mayo.skSeedBytes+mayo.oBytes+mayo.p1Bytes:mayo.eskBytes], false)
 
-	// TODO: Fix this matrix according to spec
-	//E := generateZeroMatrix(len(m), len(m))
-
 	// Hash the message, and derive salt and t
 	mDigest := shake256(mayo.digestBytes, m)
 	R := make([]byte, mayo.rBytes) // TODO: add randomization?
@@ -193,11 +190,11 @@ func (mayo *Mayo) Sign(esk, m []byte) []byte {
 
 	// Finish and output the signature
 	var s []byte
-	Ox := multiplyMatrices(O, vecToMatrix(x))
 	for i := 0; i < mayo.k; i++ {
-		OxIndexed := multiplyMatrices(vecToMatrix(v[i]), Ox[i*mayo.o:(i+1)*mayo.o])[0] // TODO: Take row or column?
-		s = append(s, OxIndexed...)
-		s = append(s, x[i*mayo.o:(i+1)*mayo.o]...)
+		xIndexed := x[i*mayo.o : (i+1)*mayo.o]
+		viOx := transposeMatrix(addMatrices(vecToMatrix(v[i]), multiplyMatrices(O, vecToMatrix(xIndexed))))[0]
+		s = append(s, viOx...)
+		s = append(s, xIndexed...)
 	}
 	var sig []byte
 	sig = append(sig, encodeVec(s)...)
@@ -243,7 +240,7 @@ func (mayo *Mayo) Verify(epk, m, sig []byte) int {
 	}
 
 	// Accept the signature if y = t
-	if reflect.DeepEqual(y, t) { // TODO: is it fine to use reflect or too slow?
+	if bytes.Equal(y, t) {
 		return 0
 	}
 	return -1

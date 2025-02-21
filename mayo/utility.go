@@ -20,7 +20,7 @@ func aes128ctr(seed []byte, l int) []byte {
 func shake256(outputLength int, inputs ...[]byte) []byte {
 	output := make([]byte, outputLength)
 
-	h := sha3.NewSHAKE256()
+	h := sha3.NewSHAKE256() // TODO: Check if this is the same as input[0] || ... || input[n]
 	for _, input := range inputs {
 		_, _ = h.Write(input[:])
 	}

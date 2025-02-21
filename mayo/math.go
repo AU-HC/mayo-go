@@ -219,12 +219,12 @@ func (mayo *Mayo) EchelonForm(B [][]byte) [][]byte {
 	return B
 }
 
-func (mayo *Mayo) SampleSolution(A [][]byte, y []byte, r []byte) ([]byte, bool) {
+func (mayo *Mayo) SampleSolution(A [][]byte, y []byte, R []byte) ([]byte, bool) {
 	// Randomize the system using r
-	var x []byte
-	copy(x, r)
+	x := make([]byte, len(R))
+	copy(x, R)
 
-	yMatrix := subVec(y, transposeMatrix(multiplyMatrices(A, vecToMatrix(r)))[0])
+	yMatrix := subVec(y, transposeMatrix(multiplyMatrices(A, vecToMatrix(R)))[0])
 
 	// Put (A y) in echelon form with leading 1's
 	AyMatrix := appendVecToMatrix(A, yMatrix)
