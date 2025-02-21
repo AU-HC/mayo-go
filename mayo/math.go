@@ -1,6 +1,44 @@
 package mayo
 
-import "fmt"
+import (
+	"bytes"
+	"fmt"
+	"slices"
+)
+
+func appendVecToMatrix(A [][]byte, b []byte) [][]byte {
+	rows, cols := len(A), len(A[0])
+	if rows != len(b) {
+		panic(fmt.Sprintf("Cannot append vector of length %d to matrix with %d rows", len(b), rows))
+	}
+
+	C := make([][]byte, rows)
+	for i := 0; i < rows; i++ {
+		C[i] = make([]byte, cols+1)
+		copy(C[i], A[i])
+		C[i][cols] = b[i]
+	}
+
+	return C
+}
+
+func extractVecFromMatrix(A [][]byte) ([][]byte, []byte) {
+	rows, cols := len(A), len(A[0])
+	if cols < 1 {
+		panic("Cannot extract vector from matrix")
+	}
+
+	B := make([][]byte, rows)
+	y := make([]byte, rows)
+
+	for i, elem := range A {
+		B[i] = make([]byte, cols-1)
+		B[i] = elem[:cols-1]
+		y[i] = elem[cols-1]
+	}
+
+	return B, y
+}
 
 func multiplyMatrices(A, B [][]byte) [][]byte {
 	// TODO: remove this check
@@ -33,6 +71,7 @@ func addMatrices(A, B [][]byte) [][]byte {
 		panic("Cannot add matrices")
 	}
 
+	// TODO: Use add vec here
 	C := make([][]byte, rowsA)
 	for i := range C {
 		C[i] = make([]byte, colsA)
@@ -42,6 +81,73 @@ func addMatrices(A, B [][]byte) [][]byte {
 	}
 
 	return C
+}
+
+func addVectors(A, B []byte) []byte {
+	if len(A) != len(B) {
+		panic("Cannot add vectors of different lengths")
+	}
+
+	C := make([]byte, len(A))
+	for i := range C {
+		C[i] = A[i] + B[i]
+	}
+
+	return C
+}
+
+func subVec(A, B []byte) []byte {
+	if len(A) != len(B) {
+		panic(fmt.Sprintf("Cannot sub vectors of length %d and %d", len(A), len(B)))
+	}
+
+	C := make([]byte, len(A))
+	for i := range C {
+		C[i] = A[i] - B[i]
+	}
+
+	return C
+}
+
+func multiplyVecConstant(b byte, a []byte) []byte {
+	C := make([]byte, len(a))
+	for i := range C {
+		C[i] = b * a[i]
+	}
+	return C
+}
+
+func inverseElement(a byte, q int) byte {
+	qByte := byte(q)
+
+	for x := byte(0); x < qByte; x++ {
+		if gf16Mul(a, x) == 1 {
+			return x
+		}
+	}
+
+	panic(fmt.Sprintf("No inverse element found for '%d' in Z_%d", a, q))
+}
+
+func gf16Mul(a, b byte) byte {
+	var p byte = 0
+	const modulus byte = 0b10011 // Irreducible polynomial x^4 + x + 1
+
+	// Polynomial multiplication with reduction
+	for i := 0; i < 4; i++ {
+		if (b & 1) != 0 {
+			p ^= a // XOR instead of addition
+		}
+		b >>= 1
+		a <<= 1
+
+		// Reduction step if a exceeds 4 bits
+		if (a & 0b10000) != 0 {
+			a ^= modulus
+		}
+	}
+
+	return p & 0xF // Ensure result is within GF(16)
 }
 
 func subMatrices(A, B [][]byte) [][]byte {
@@ -77,36 +183,67 @@ func transposeMatrix(A [][]byte) [][]byte {
 }
 
 func (mayo *Mayo) EchelonForm(B [][]byte) [][]byte {
-	return nil
+	pivotColumn := 0
+	pivotRow := 0
+
+	for pivotRow < mayo.m && pivotColumn < mayo.o*mayo.k+1 {
+		var possiblePivots []int
+		for i := pivotRow; i < mayo.m; i++ {
+			if B[i][pivotColumn] != 0 {
+				possiblePivots = append(possiblePivots, i)
+			}
+		}
+
+		if len(possiblePivots) == 0 {
+			pivotColumn++
+			continue
+		}
+
+		nextPivotRow := slices.Min(possiblePivots)
+		B[pivotRow], B[nextPivotRow] = B[nextPivotRow], B[pivotRow]
+
+		// Make the leading entry a 1
+		B[pivotRow] = multiplyVecConstant(inverseElement(B[pivotRow][pivotColumn], mayo.q), B[pivotRow])
+
+		// Eliminate entries below the pivot
+		for row := nextPivotRow + 1; row < mayo.m; row++ {
+			B[row] = subVec(B[row], multiplyVecConstant(B[row][pivotColumn], B[pivotRow]))
+		}
+
+		pivotRow++
+		pivotColumn++
+	}
+
+	return B
 }
 
 func (mayo *Mayo) SampleSolution(A [][]byte, y []byte, r []byte) ([]byte, bool) {
 	// Randomize the system using r
-	ko := mayo.k * mayo.o
 	var x []byte
 	copy(x, r)
-	yMatrix := subMatrices(vecToMatrix(y), multiplyMatrices(A, vecToMatrix(r)))
+
+	yMatrix := subVec(y, transposeMatrix(multiplyMatrices(A, vecToMatrix(r)))[0])
 
 	// Put (A y) in echelon form with leading 1's
-	yMatrix = mayo.EchelonForm(yMatrix)
+	AyMatrix := appendVecToMatrix(A, yMatrix)
+	AyMatrix = mayo.EchelonForm(AyMatrix)
+	A, y = extractVecFromMatrix(AyMatrix)
 
 	// Check if A has rank m
-	for i := 0; i < mayo.n; i++ {
-		if yMatrix[mayo.m-1][i] == 1 {
-			return nil, false
-		}
+	zeroVector := make([]byte, mayo.k*mayo.o)
+	if bytes.Equal(A[mayo.m-1], zeroVector) {
+		return nil, false
 	}
 
 	// Back-substitution
 	for r := mayo.m - 1; r >= 0; r-- {
 		// Let c be the index of first non-zero element of A[r,:]
 		for c := 0; c < r; c++ {
-			if yMatrix[r][c] != 0 {
-				yr := yMatrix[r][ko]
-				x[c] += yr
+			if A[r][c] != 0 {
+				x[c] += y[r]
 
-				for i := 0; i < r; i++ {
-					yMatrix[i][ko] -= yr * transposeMatrix(A)[r][c]
+				for i := 0; i < mayo.m; i++ {
+					y[i] -= y[r] * A[i][c]
 				}
 
 				break

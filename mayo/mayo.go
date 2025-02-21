@@ -163,11 +163,21 @@ func (mayo *Mayo) Sign(esk, m []byte) []byte {
 					}
 				}
 
-				// TODO: Fix
-				y = y
+				// TODO: Check how to use l in relation to E^l
+				y = subVec(y, multiplyVecConstant(byte(l), u))
+
+				for row := 0; row < mayo.m; row++ {
+					for column := i * mayo.o; column < (i+1)*mayo.o; column++ {
+						A[row][column] = A[row][column] + byte(l)*M[j][row][column-i*mayo.o]
+					}
+				}
 
 				if i != j {
-
+					for row := 0; row < mayo.m; row++ {
+						for column := j * mayo.o; column < (j+1)*mayo.o; column++ {
+							A[row][column] = A[row][column] + byte(l)*M[i][row][column-j*mayo.o]
+						}
+					}
 				}
 
 				l = l + 1
