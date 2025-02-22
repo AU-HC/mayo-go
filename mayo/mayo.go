@@ -96,7 +96,7 @@ func (mayo *Mayo) Sign(esk, m []byte) []byte {
 	mDigest := shake256(mayo.digestBytes, m)
 	R := make([]byte, mayo.rBytes) // TODO: add randomization?
 	salt := shake256(mayo.saltBytes, mDigest, R, seedSk)
-	t := decodeVec(mayo.m, shake256(int(math.Ceil(float64(mayo.m)*math.Log2(float64(mayo.q))/8.0)), mDigest))
+	t := decodeVec(mayo.m, shake256(int(math.Ceil(float64(mayo.m)*math.Log2(float64(mayo.q))/8.0)), mDigest, salt))
 
 	// Attempt to find a preimage for t
 	var x []byte
@@ -150,14 +150,14 @@ func (mayo *Mayo) Sign(esk, m []byte) []byte {
 
 				for row := 0; row < mayo.m; row++ {
 					for column := i * mayo.o; column < (i+1)*mayo.o; column++ {
-						A[row][column] = A[row][column] + byte(l)*M[j][row][column-i*mayo.o]
+						A[row][column] = (A[row][column] + byte(l)*M[j][row][column-i*mayo.o]) % 0x10 // TODO: Is this good enough, also should it be XOR?
 					}
 				}
 
 				if i != j {
 					for row := 0; row < mayo.m; row++ {
 						for column := j * mayo.o; column < (j+1)*mayo.o; column++ {
-							A[row][column] = A[row][column] + byte(l)*M[i][row][column-j*mayo.o]
+							A[row][column] = (A[row][column] + byte(l)*M[i][row][column-j*mayo.o]) % 0x10 // TODO: Is this good enough, also should it be XOR?
 						}
 					}
 				}

@@ -76,7 +76,7 @@ func addMatrices(A, B [][]byte) [][]byte {
 	for i := range C {
 		C[i] = make([]byte, colsA)
 		for j := range C[i] {
-			C[i][j] = (A[i][j] + B[i][j]) % 0xF
+			C[i][j] = (A[i][j] + B[i][j]) % 0x10
 		}
 	}
 
@@ -90,7 +90,7 @@ func addVectors(A, B []byte) []byte {
 
 	C := make([]byte, len(A))
 	for i := range C {
-		C[i] = (A[i] + B[i]) % 0xF
+		C[i] = (A[i] + B[i]) % 0x10
 	}
 
 	return C
@@ -103,7 +103,7 @@ func subVec(A, B []byte) []byte {
 
 	C := make([]byte, len(A))
 	for i := range C {
-		C[i] = (A[i] - B[i]) % 0xF
+		C[i] = (A[i] - B[i]) % 0x10
 	}
 
 	return C
@@ -205,7 +205,7 @@ func (mayo *Mayo) EchelonForm(B [][]byte) [][]byte {
 		B[pivotRow], B[nextPivotRow] = B[nextPivotRow], B[pivotRow]
 
 		// Make the leading entry a 1
-		B[pivotRow] = multiplyVecConstant(mayo.invTable[B[pivotRow][pivotColumn]%byte(0xF)], B[pivotRow])
+		B[pivotRow] = multiplyVecConstant(mayo.invTable[B[pivotRow][pivotColumn]], B[pivotRow])
 
 		// Eliminate entries below the pivot
 		for row := nextPivotRow + 1; row < mayo.m; row++ {
@@ -254,10 +254,4 @@ func (mayo *Mayo) SampleSolution(A [][]byte, y []byte, R []byte) ([]byte, bool) 
 	}
 
 	return x, true
-}
-
-func printMatrix(matrix [][]byte) {
-	for _, row := range matrix {
-		fmt.Println(row)
-	}
 }

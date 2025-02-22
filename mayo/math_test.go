@@ -1,6 +1,7 @@
 package mayo
 
 import (
+	"bytes"
 	"reflect"
 	"testing"
 )
@@ -100,5 +101,16 @@ func TestTransposeMatrixForVectorizedMatrix(t *testing.T) {
 
 	if !reflect.DeepEqual(result, expected) {
 		t.Error("Addition failed")
+	}
+}
+
+func TestAddSubVectorWorksAsExpectedInTheField(t *testing.T) {
+	A := []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15}
+	B := []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15}
+
+	result := addVectors(A, subVec(A, B))
+
+	if !bytes.Equal(A, result) {
+		t.Error("Addition and subtraction failed")
 	}
 }
