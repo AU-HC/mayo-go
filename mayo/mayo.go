@@ -128,7 +128,6 @@ func (mayo *Mayo) Sign(esk, m []byte) []byte {
 		for i := 0; i < mayo.k; i++ {
 			for j := mayo.k - 1; j >= i; j-- {
 				u := make([]byte, mayo.m)
-
 				if i == j {
 					for a := 0; a < mayo.m; a++ {
 						vMatrix := vecToMatrix(v[i])
@@ -153,7 +152,6 @@ func (mayo *Mayo) Sign(esk, m []byte) []byte {
 						A[row][column] = (A[row][column] + byte(l)*M[j][row][column-i*mayo.o]) % 0x10 // TODO: Is this good enough, also should it be XOR?
 					}
 				}
-
 				if i != j {
 					for row := 0; row < mayo.m; row++ {
 						for column := j * mayo.o; column < (j+1)*mayo.o; column++ {
@@ -222,16 +220,15 @@ func (mayo *Mayo) Verify(epk, m, sig []byte) int {
 			if i == j {
 				for a := 0; a < mayo.m; a++ {
 					sMatrix := vecToMatrix(si[i])
-					u[a] = multiplyMatrices(sMatrix, multiplyMatrices(transposeMatrix(sMatrix), P[a]))[0][0]
+					u[a] = multiplyMatrices(multiplyMatrices(transposeMatrix(sMatrix), P[a]), sMatrix)[0][0]
 				}
 			} else {
 				for a := 0; a < mayo.m; a++ {
 					siMatrix := vecToMatrix(si[i])
 					sjMatrix := vecToMatrix(si[j])
-					u[a] = addMatrices(
-						multiplyMatrices(siMatrix, multiplyMatrices(transposeMatrix(siMatrix), P[a])),
-						multiplyMatrices(siMatrix, multiplyMatrices(transposeMatrix(sjMatrix), P[a])),
-					)[0][0]
+					u[a] = (multiplyMatrices(siMatrix, multiplyMatrices(transposeMatrix(siMatrix), P[a]))[0][0] +
+						multiplyMatrices(siMatrix, multiplyMatrices(transposeMatrix(sjMatrix), P[a]))[0][0]) % 0x10
+
 				}
 			}
 			// TODO: Check how to use l in relation to E^l
