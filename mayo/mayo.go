@@ -3,20 +3,9 @@ package mayo
 import (
 	"bytes"
 	cryptoRand "crypto/rand"
-	"fmt"
 	"io"
 	"math"
 )
-
-func generateZeroMatrix(rows, columns int) [][]byte {
-	matrix := make([][]byte, rows)
-
-	for i := 0; i < rows; i++ {
-		matrix[i] = make([]byte, columns)
-	}
-
-	return matrix
-}
 
 // CompactKeyGen (Algorithm 4) outputs compact representation of a secret key csk and public key cpk. Will instead return an error, if
 // it fails to generate random bytes.
@@ -125,7 +114,6 @@ func (mayo *Mayo) Sign(esk, m []byte) []byte {
 		A := generateZeroMatrix(mayo.m, mayo.k*mayo.o)
 		y := t
 		l := 0
-
 		M := make([][][]byte, mayo.k)
 		for i := 0; i < mayo.k; i++ {
 			mi := generateZeroMatrix(mayo.m, mayo.o)
@@ -174,7 +162,7 @@ func (mayo *Mayo) Sign(esk, m []byte) []byte {
 					}
 				}
 
-				l = l + 1
+				l++
 			}
 		}
 
@@ -230,13 +218,25 @@ func (mayo *Mayo) Verify(epk, m, sig []byte) int {
 	l := 0
 	for i := 0; i < mayo.k; i++ {
 		for j := mayo.k - 1; j >= i; j-- {
-			var u byte
+			u := make([]byte, mayo.m)
 			if i == j {
-				u = multiplyMatrices(multiplyMatrices(transposeMatrix(vecToMatrix(si[i])), P), vecToMatrix(si[i]))[0][0]
+				for a := 0; a < mayo.m; a++ {
+					sMatrix := vecToMatrix(si[i])
+					u[a] = multiplyMatrices(sMatrix, multiplyMatrices(transposeMatrix(sMatrix), P[a]))[0][0]
+				}
 			} else {
-
+				for a := 0; a < mayo.m; a++ {
+					siMatrix := vecToMatrix(si[i])
+					sjMatrix := vecToMatrix(si[j])
+					u[a] = addMatrices(
+						multiplyMatrices(siMatrix, multiplyMatrices(transposeMatrix(siMatrix), P[a])),
+						multiplyMatrices(siMatrix, multiplyMatrices(transposeMatrix(sjMatrix), P[a])),
+					)[0][0]
+				}
 			}
-			fmt.Println(u)
+
+			// TODO: Check how to use l in relation to E^l
+			y = addVectors(y, multiplyVecConstant(byte(l), u))
 			l++
 		}
 	}

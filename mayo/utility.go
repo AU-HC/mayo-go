@@ -28,3 +28,13 @@ func shake256(outputLength int, inputs ...[]byte) []byte {
 
 	return output
 }
+
+func generateZeroMatrix(rows, columns int) [][]byte {
+	matrix := make([][]byte, rows)
+
+	for i := 0; i < rows; i++ {
+		matrix[i] = make([]byte, columns)
+	}
+
+	return matrix
+}

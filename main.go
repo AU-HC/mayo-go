@@ -7,6 +7,7 @@ import (
 
 func main() {
 	// Initialize MAYO
+	message := []byte("This is a message.")
 	mayo, err := standard.InitMayo(2)
 	if err != nil {
 		fmt.Println(err)
@@ -19,11 +20,10 @@ func main() {
 		fmt.Println(err)
 		return
 	}
-	esk := mayo.ExpandSK(csk)
 	epk := mayo.ExpandPK(cpk)
+	esk := mayo.ExpandSK(csk)
 
-	// Define the message and sign it
-	message := []byte("This is a message.")
+	// Sign the message
 	sig := mayo.Sign(esk, message)
 
 	// Check if the signature is valid
