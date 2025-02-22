@@ -54,7 +54,7 @@ func multiplyMatrices(A, B [][]byte) [][]byte {
 		C[i] = make([]byte, colsB)
 		for j := 0; j < colsB; j++ {
 			for k := 0; k < colsA; k++ {
-				C[i][j] += A[i][k] * B[k][j]
+				C[i][j] += gf16Mul(A[i][k], B[k][j])
 			}
 		}
 	}
@@ -76,7 +76,7 @@ func addMatrices(A, B [][]byte) [][]byte {
 	for i := range C {
 		C[i] = make([]byte, colsA)
 		for j := range C[i] {
-			C[i][j] = A[i][j] + B[i][j]
+			C[i][j] = (A[i][j] + B[i][j]) % 0xF
 		}
 	}
 
@@ -90,7 +90,7 @@ func addVectors(A, B []byte) []byte {
 
 	C := make([]byte, len(A))
 	for i := range C {
-		C[i] = A[i] + B[i]
+		C[i] = (A[i] + B[i]) % 0xF
 	}
 
 	return C
@@ -103,7 +103,7 @@ func subVec(A, B []byte) []byte {
 
 	C := make([]byte, len(A))
 	for i := range C {
-		C[i] = A[i] - B[i]
+		C[i] = (A[i] - B[i]) % 0xF
 	}
 
 	return C
@@ -112,7 +112,7 @@ func subVec(A, B []byte) []byte {
 func multiplyVecConstant(b byte, a []byte) []byte {
 	C := make([]byte, len(a))
 	for i := range C {
-		C[i] = b * a[i]
+		C[i] = gf16Mul(b, a[i])
 	}
 	return C
 }

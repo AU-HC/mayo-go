@@ -7,8 +7,8 @@ import (
 	"math"
 )
 
-// CompactKeyGen (Algorithm 4) outputs compact representation of a secret key csk and public key cpk. Will instead return an error, if
-// it fails to generate random bytes.
+// CompactKeyGen (Algorithm 4) outputs compact representation of a secret key csk and public key cpk. Will instead
+// return an error, if it fails to generate random bytes.
 func (mayo *Mayo) CompactKeyGen() ([]byte, []byte, error) {
 	seedSk := make([]byte, mayo.skSeedBytes)
 	rand := cryptoRand.Reader // TODO: refactor this prob
@@ -177,7 +177,7 @@ func (mayo *Mayo) Sign(esk, m []byte) []byte {
 	var s []byte
 	for i := 0; i < mayo.k; i++ {
 		xIndexed := x[i*mayo.o : (i+1)*mayo.o]
-		viOx := transposeMatrix(addMatrices(vecToMatrix(v[i]), multiplyMatrices(O, vecToMatrix(xIndexed))))[0] // TODO: make this more efficient
+		viOx := transposeMatrix(addMatrices(vecToMatrix(v[i]), multiplyMatrices(O, vecToMatrix(xIndexed))))[0]
 		s = append(s, viOx...)
 		s = append(s, xIndexed...)
 	}
@@ -234,7 +234,6 @@ func (mayo *Mayo) Verify(epk, m, sig []byte) int {
 					)[0][0]
 				}
 			}
-
 			// TODO: Check how to use l in relation to E^l
 			y = addVectors(y, multiplyVecConstant(byte(l), u))
 			l++

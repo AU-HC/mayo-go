@@ -7,7 +7,7 @@ import (
 
 func main() {
 	// Initialize MAYO
-	message := []byte("This is a message.")
+	message := []byte("Hello, world!")
 	mayo, err := standard.InitMayo(2)
 	if err != nil {
 		fmt.Println(err)

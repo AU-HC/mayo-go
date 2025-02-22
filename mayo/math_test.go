@@ -37,8 +37,8 @@ func TestMatrixAddition(t *testing.T) {
 		{7, 8},
 	}
 	expected := [][]byte{
-		{6, 8},
-		{10, 12},
+		{6 % 0xF, 8 % 0xF},
+		{10 % 0xF, 12 % 0xF},
 	}
 
 	result := addMatrices(A, B)
