@@ -140,7 +140,7 @@ func (mayo *Mayo) Sign(esk, m []byte) []byte {
 						u[a] = addMatrices(
 							multiplyMatrices(multiplyMatrices(transposeMatrix(viMatrix), P1[a]), vjMatrix),
 							multiplyMatrices(multiplyMatrices(transposeMatrix(vjMatrix), P1[a]), viMatrix),
-						)[0][0]
+						)[0][0] // TODO: Unnecessary computation?
 					}
 				}
 
@@ -226,8 +226,10 @@ func (mayo *Mayo) Verify(epk, m, sig []byte) int {
 				for a := 0; a < mayo.m; a++ {
 					siMatrix := vecToMatrix(si[i])
 					sjMatrix := vecToMatrix(si[j])
-					u[a] = (multiplyMatrices(siMatrix, multiplyMatrices(transposeMatrix(siMatrix), P[a]))[0][0] +
-						multiplyMatrices(siMatrix, multiplyMatrices(transposeMatrix(sjMatrix), P[a]))[0][0]) % 0x10
+					u[a] = addMatrices(
+						multiplyMatrices(multiplyMatrices(transposeMatrix(siMatrix), P[a]), sjMatrix),
+						multiplyMatrices(multiplyMatrices(transposeMatrix(sjMatrix), P[a]), siMatrix),
+					)[0][0]
 
 				}
 			}
