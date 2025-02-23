@@ -203,7 +203,8 @@ func (mayo *Mayo) Verify(epk, m, sig []byte) int {
 	s := decodeVec(mayo.k*mayo.n, sig)
 	si := make([][]byte, mayo.k)
 	for i := 0; i < mayo.k; i++ {
-		si[i] = s[i*mayo.n : (i+1)*mayo.n]
+		si[i] = make([]byte, mayo.n)
+		copy(si[i], s[i*mayo.n:(i+1)*mayo.n])
 	}
 
 	// Hash the message and derive t
@@ -211,7 +212,7 @@ func (mayo *Mayo) Verify(epk, m, sig []byte) int {
 	t := decodeVec(mayo.m, shake256(int(math.Ceil(float64(mayo.m)*math.Log2(float64(mayo.q))/8)), mDigest, salt))
 
 	// Compute P^*(s)
-	P := mayo.calculateP(P1, P2, P3)
+	P := mayo.calculateP(P1, P2, P3) // TODO: This is calculated incorrectly
 	y := make([]byte, mayo.m)
 	l := 0
 	for i := 0; i < mayo.k; i++ {
@@ -220,13 +221,13 @@ func (mayo *Mayo) Verify(epk, m, sig []byte) int {
 			if i == j {
 				for a := 0; a < mayo.m; a++ {
 					sMatrix := vecToMatrix(si[i])
-					u[a] = multiplyMatrices(multiplyMatrices(transposeMatrix(sMatrix), P[a]), sMatrix)[0][0]
+					u[a] = multiplyMatrices(sMatrix, multiplyMatrices(transposeMatrix(sMatrix), P[a]))[0][0] // TODO: This is calculated incorrectly
 				}
 			} else {
 				for a := 0; a < mayo.m; a++ {
 					siMatrix := vecToMatrix(si[i])
 					sjMatrix := vecToMatrix(si[j])
-					u[a] = addMatrices(
+					u[a] = addMatrices( // TODO: This is calculated incorrectly
 						multiplyMatrices(multiplyMatrices(transposeMatrix(siMatrix), P[a]), sjMatrix),
 						multiplyMatrices(multiplyMatrices(transposeMatrix(sjMatrix), P[a]), siMatrix),
 					)[0][0]

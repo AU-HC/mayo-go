@@ -95,7 +95,6 @@ func TestDecodeVecEven(t *testing.T) {
 }
 
 func TestEncodeDecode(t *testing.T) {
-
 	for i := 5; i < 50; i++ {
 		n := i
 		b := make([]byte, n)
