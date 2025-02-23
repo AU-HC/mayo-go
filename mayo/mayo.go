@@ -3,7 +3,6 @@ package mayo
 import (
 	"bytes"
 	cryptoRand "crypto/rand"
-	"fmt"
 	"io"
 	"math"
 )
@@ -69,7 +68,6 @@ func (mayo *Mayo) ExpandSK(csk []byte) []byte {
 	esk = append(esk, oByteString...)
 	esk = append(esk, p[:mayo.p1Bytes]...)
 	esk = append(esk, encodeMatrixList(v, mayo.o, l, false)...)
-
 	return esk
 }
 
@@ -150,13 +148,13 @@ func (mayo *Mayo) Sign(esk, m []byte) []byte {
 
 				for row := 0; row < mayo.m; row++ {
 					for column := i * mayo.o; column < (i+1)*mayo.o; column++ {
-						A[row][column] = (A[row][column] + byte(l)*M[j][row][column-i*mayo.o]) % 0x10 // TODO: Is this good enough, also should it be XOR?
+						A[row][column] = (A[row][column] + gf16Mul(byte(l), M[j][row][column-i*mayo.o])) % 0x10 // TODO: Is this good enough, also should it be XOR?
 					}
 				}
 				if i != j {
 					for row := 0; row < mayo.m; row++ {
 						for column := j * mayo.o; column < (j+1)*mayo.o; column++ {
-							A[row][column] = (A[row][column] + byte(l)*M[i][row][column-j*mayo.o]) % 0x10 // TODO: Is this good enough, also should it be XOR?
+							A[row][column] = (A[row][column] + gf16Mul(byte(l), M[i][row][column-j*mayo.o])) % 0x10 // TODO: Is this good enough, also should it be XOR?
 						}
 					}
 				}
@@ -190,7 +188,7 @@ func (mayo *Mayo) Sign(esk, m []byte) []byte {
 // if the signature is valid on m. Specifically if the signature is valid it will output 0, if invalid < 0.
 func (mayo *Mayo) Verify(epk, m, sig []byte) int {
 	// Decode epk
-	v := mayo.n - mayo.o
+	v := mayo.n - mayo.o // TODO: Remove this and use mayo.v
 	P1ByteString := epk[:mayo.p1Bytes]
 	P2ByteString := epk[mayo.p1Bytes : mayo.p1Bytes+mayo.p2Bytes]
 	P3ByteString := epk[mayo.p1Bytes+mayo.p2Bytes : mayo.p1Bytes+mayo.p2Bytes+mayo.p3Bytes]
@@ -214,13 +212,14 @@ func (mayo *Mayo) Verify(epk, m, sig []byte) int {
 
 	// Compute P^*(s)
 	P := mayo.calculateP(P1, P2, P3) // TODO: Is this calculated correctly?
-
-	for _, row := range P[0] {
-		for _, elem := range row {
-			fmt.Printf("%2d ", elem)
+	/*
+		for _, row := range P[0] {
+			for _, elem := range row {
+				fmt.Printf("%2d ", elem)
+			}
+			fmt.Println()
 		}
-		fmt.Println()
-	}
+	*/
 
 	y := make([]byte, mayo.m)
 	l := 0
@@ -230,7 +229,7 @@ func (mayo *Mayo) Verify(epk, m, sig []byte) int {
 			if i == j {
 				for a := 0; a < mayo.m; a++ {
 					sMatrix := vecToMatrix(si[i])
-					u[a] = multiplyMatrices(sMatrix, multiplyMatrices(transposeMatrix(sMatrix), P[a]))[0][0]
+					u[a] = multiplyMatrices(multiplyMatrices(transposeMatrix(sMatrix), P[a]), sMatrix)[0][0] % 0x10 // TODO: Reduce mod like this?
 				}
 			} else {
 				for a := 0; a < mayo.m; a++ {
