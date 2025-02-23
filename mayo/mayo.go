@@ -3,6 +3,7 @@ package mayo
 import (
 	"bytes"
 	cryptoRand "crypto/rand"
+	"fmt"
 	"io"
 	"math"
 )
@@ -212,7 +213,15 @@ func (mayo *Mayo) Verify(epk, m, sig []byte) int {
 	t := decodeVec(mayo.m, shake256(int(math.Ceil(float64(mayo.m)*math.Log2(float64(mayo.q))/8)), mDigest, salt))
 
 	// Compute P^*(s)
-	P := mayo.calculateP(P1, P2, P3) // TODO: This is calculated incorrectly
+	P := mayo.calculateP(P1, P2, P3) // TODO: Is this calculated correctly?
+
+	for _, row := range P[0] {
+		for _, elem := range row {
+			fmt.Printf("%2d ", elem)
+		}
+		fmt.Println()
+	}
+
 	y := make([]byte, mayo.m)
 	l := 0
 	for i := 0; i < mayo.k; i++ {
@@ -221,13 +230,13 @@ func (mayo *Mayo) Verify(epk, m, sig []byte) int {
 			if i == j {
 				for a := 0; a < mayo.m; a++ {
 					sMatrix := vecToMatrix(si[i])
-					u[a] = multiplyMatrices(sMatrix, multiplyMatrices(transposeMatrix(sMatrix), P[a]))[0][0] // TODO: This is calculated incorrectly
+					u[a] = multiplyMatrices(sMatrix, multiplyMatrices(transposeMatrix(sMatrix), P[a]))[0][0]
 				}
 			} else {
 				for a := 0; a < mayo.m; a++ {
 					siMatrix := vecToMatrix(si[i])
 					sjMatrix := vecToMatrix(si[j])
-					u[a] = addMatrices( // TODO: This is calculated incorrectly
+					u[a] = addMatrices(
 						multiplyMatrices(multiplyMatrices(transposeMatrix(siMatrix), P[a]), sjMatrix),
 						multiplyMatrices(multiplyMatrices(transposeMatrix(sjMatrix), P[a]), siMatrix),
 					)[0][0]
@@ -256,27 +265,24 @@ func (mayo *Mayo) calculateP(P1, P2, P3 [][][]byte) [][][]byte {
 		}
 	}
 
-	p1i, p2i, p3i := 0, 0, 0
 	for i := 0; i < mayo.m; i++ {
-		for r := 0; r < mayo.v; r++ {
-			for c := r; c < mayo.v; c++ {
-				P[i][r] = P1[i][p1i]
-				p1i++
+		// Set P1
+		for row := 0; row < mayo.v; row++ {
+			for column := 0; column < mayo.v; column++ {
+				P[i][row][column] = P1[i][row][column]
 			}
-			for c := mayo.v; c < mayo.n; c++ {
-				P[i][r] = P2[i][p2i]
-				p2i++
-			}
-			p1i, p2i = 0, 0
 		}
-	}
-	for i := 0; i < mayo.m; i++ {
-		for r := mayo.v; r < mayo.n; r++ {
-			for c := r; c < mayo.n; c++ {
-				P[i][r] = P3[i][p3i]
-				p3i++
+		// Set P2
+		for row := 0; row < mayo.v; row++ {
+			for column := 0; column < mayo.o; column++ {
+				P[i][row][column+mayo.v] = P2[i][row][column]
 			}
-			p3i = 0
+		}
+		// Set P3
+		for row := 0; row < mayo.o; row++ {
+			for column := 0; column < mayo.o; column++ {
+				P[i][row+mayo.v][column+mayo.v] = P3[i][row][column]
+			}
 		}
 	}
 
