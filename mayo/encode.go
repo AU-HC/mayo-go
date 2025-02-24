@@ -1,5 +1,7 @@
 package mayo
 
+import "fmt"
+
 // encodeVec encodes a byte slice into a byte slice of half the length
 func encodeVec(bytes []byte) []byte {
 	encoded := make([]byte, (len(bytes)+1)/2)
@@ -121,4 +123,13 @@ func vecToMatrix(vec []byte) [][]byte {
 		matrix[i] = []byte{elem}
 	}
 	return matrix
+}
+
+func printMatrix(matrix [][][]byte) {
+	for _, row := range matrix[0] {
+		for _, elem := range row {
+			fmt.Printf("%2d ", elem)
+		}
+		fmt.Println()
+	}
 }

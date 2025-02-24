@@ -54,7 +54,7 @@ func multiplyMatrices(A, B [][]byte) [][]byte {
 		C[i] = make([]byte, colsB)
 		for j := 0; j < colsB; j++ {
 			for k := 0; k < colsA; k++ {
-				C[i][j] += gf16Mul(A[i][k], B[k][j])
+				C[i][j] ^= gf16Mul(A[i][k], B[k][j])
 			}
 		}
 	}
@@ -76,7 +76,7 @@ func addMatrices(A, B [][]byte) [][]byte {
 	for i := range C {
 		C[i] = make([]byte, colsA)
 		for j := range C[i] {
-			C[i][j] = (A[i][j] + B[i][j]) % 0x10
+			C[i][j] = A[i][j] ^ B[i][j]
 		}
 	}
 
@@ -90,7 +90,7 @@ func addVectors(A, B []byte) []byte {
 
 	C := make([]byte, len(A))
 	for i := range C {
-		C[i] = (A[i] + B[i]) % 0x10
+		C[i] = A[i] ^ B[i]
 	}
 
 	return C
@@ -103,7 +103,7 @@ func subVec(A, B []byte) []byte {
 
 	C := make([]byte, len(A))
 	for i := range C {
-		C[i] = (A[i] - B[i]) % 0x10
+		C[i] = A[i] ^ B[i]
 	}
 
 	return C
@@ -131,25 +131,22 @@ func (mayo *Mayo) inverseElement(a byte, q int) byte {
 	panic(fmt.Sprintf("No inverse element found for '%d' in Z_%d", a, q))
 }
 
+// TODO: Refactor?
 func gf16Mul(a, b byte) byte {
-	var p byte = 0
-	const modulus byte = 0xF // Irreducible polynomial x^4 + x + 1
-
-	// Polynomial multiplication with reduction
-	for i := 0; i < 4; i++ {
-		if (b & 1) != 0 {
-			p ^= a // XOR instead of addition
-		}
-		b >>= 1
-		a <<= 1
-
-		// Reduction step if a exceeds 4 bits
-		if (a & 0b10000) != 0 {
-			a ^= modulus
-		}
+	var r byte
+	if b&1 != 0 {
+		r ^= a
 	}
-
-	return p & 0xF // Ensure result is within GF(16)
+	if b&2 != 0 {
+		r ^= (a << 1) ^ (a >> 3) ^ ((a >> 2) & 0x2)
+	}
+	if b&4 != 0 {
+		r ^= (a << 2) ^ (a >> 2) ^ ((a >> 1) & 0x6)
+	}
+	if b&8 != 0 {
+		r ^= (a << 3) ^ (a >> 1) ^ (a & 0xE)
+	}
+	return r & 0xF
 }
 
 func subMatrices(A, B [][]byte) [][]byte {
@@ -165,7 +162,7 @@ func subMatrices(A, B [][]byte) [][]byte {
 	for i := range C {
 		C[i] = make([]byte, colsA)
 		for j := range C[i] {
-			C[i][j] = A[i][j] - B[i][j]
+			C[i][j] = A[i][j] ^ B[i][j]
 		}
 	}
 
@@ -242,10 +239,10 @@ func (mayo *Mayo) SampleSolution(A [][]byte, y []byte, R []byte) ([]byte, bool) 
 		// Let c be the index of first non-zero element of A[r,:]
 		for c := 0; c < r; c++ {
 			if A[r][c] != 0 {
-				x[c] += y[r]
+				x[c] ^= y[r]
 
 				for i := 0; i < mayo.m; i++ {
-					y[i] -= y[r] * A[i][c]
+					y[i] ^= gf16Mul(y[r], A[i][c])
 				}
 
 				break

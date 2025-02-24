@@ -19,21 +19,19 @@ func (mayo *Mayo) CompactKeyGen() ([]byte, []byte, error) {
 
 	s := shake256(mayo.pkSeedBytes+mayo.oBytes, seedSk)
 	seedPk := s[:mayo.pkSeedBytes]
-	o := decodeMatrix(mayo.n-mayo.o, mayo.o, s[mayo.pkSeedBytes:mayo.pkSeedBytes+mayo.oBytes])
+	O := decodeMatrix(mayo.n-mayo.o, mayo.o, s[mayo.pkSeedBytes:mayo.pkSeedBytes+mayo.oBytes])
 
-	v := mayo.n - mayo.o
 	p := aes128ctr(seedPk, mayo.p1Bytes+mayo.p2Bytes)
-	p1 := decodeMatrixList(mayo.m, v, v, p[:mayo.p1Bytes], true)
-	p2 := decodeMatrixList(mayo.m, v, mayo.o, p[mayo.p1Bytes:mayo.p1Bytes+mayo.p2Bytes], false)
-
-	p3 := make([][][]byte, mayo.m)
+	P1 := decodeMatrixList(mayo.m, mayo.v, mayo.v, p[:mayo.p1Bytes], true)
+	P2 := decodeMatrixList(mayo.m, mayo.v, mayo.o, p[mayo.p1Bytes:mayo.p1Bytes+mayo.p2Bytes], false)
+	P3 := make([][][]byte, mayo.m)
 	for i := 0; i < mayo.m; i++ {
-		p3[i] = multiplyMatrices(transposeMatrix(o), addMatrices(multiplyMatrices(p1[i], o), p2[i]))
+		P3[i] = multiplyMatrices(transposeMatrix(O), addMatrices(multiplyMatrices(P1[i], O), P2[i]))
 	}
 
 	var cpk []byte // TODO: is this a slow way of appended bytes? (General for entire file)
 	cpk = append(cpk, seedPk...)
-	cpk = append(cpk, encodeMatrixList(mayo.o, mayo.o, p3, true)...)
+	cpk = append(cpk, encodeMatrixList(mayo.o, mayo.o, P3, true)...)
 	csk := seedSk
 
 	return cpk, csk, nil
@@ -45,21 +43,20 @@ func (mayo *Mayo) ExpandSK(csk []byte) []byte {
 	seedSk := csk[:mayo.skSeedBytes]
 
 	// Derive seedPk and O from seedSk
-	s := shake256(mayo.pkSeedBytes+mayo.oBytes, seedSk[:mayo.pkSeedBytes])
-	seedPk := s[:mayo.pkSeedBytes]
-	oByteString := s[mayo.pkSeedBytes : mayo.pkSeedBytes+mayo.oBytes]
-	o := decodeMatrix(mayo.n-mayo.o, mayo.o, oByteString)
+	S := shake256(mayo.pkSeedBytes+mayo.oBytes, seedSk)
+	seedPk := S[:mayo.pkSeedBytes]
+	oByteString := S[mayo.pkSeedBytes : mayo.pkSeedBytes+mayo.oBytes]
+	O := decodeMatrix(mayo.n-mayo.o, mayo.o, oByteString)
 
 	// Derive P1 and P2 from seedPk
-	v := mayo.n - mayo.o
 	p := aes128ctr(seedPk, mayo.p1Bytes+mayo.p2Bytes)
-	p1 := decodeMatrixList(mayo.m, v, v, p[:mayo.p1Bytes], true)
-	p2 := decodeMatrixList(mayo.m, v, mayo.o, p[mayo.p1Bytes:mayo.p1Bytes+mayo.p2Bytes], false)
+	P1 := decodeMatrixList(mayo.m, mayo.v, mayo.v, p[:mayo.p1Bytes], true)
+	P2 := decodeMatrixList(mayo.m, mayo.v, mayo.o, p[mayo.p1Bytes:mayo.p1Bytes+mayo.p2Bytes], false)
 
 	// Compute the L
-	l := make([][][]byte, mayo.m)
+	L := make([][][]byte, mayo.m)
 	for i := 0; i < mayo.m; i++ {
-		l[i] = addMatrices(multiplyMatrices(addMatrices(p1[i], transposeMatrix(p1[i])), o), p2[i])
+		L[i] = addMatrices(multiplyMatrices(addMatrices(P1[i], transposeMatrix(P1[i])), O), P2[i])
 	}
 
 	// Encode L and output esk
@@ -67,7 +64,7 @@ func (mayo *Mayo) ExpandSK(csk []byte) []byte {
 	esk = append(esk, seedSk...)
 	esk = append(esk, oByteString...)
 	esk = append(esk, p[:mayo.p1Bytes]...)
-	esk = append(esk, encodeMatrixList(v, mayo.o, l, false)...)
+	esk = append(esk, encodeMatrixList(mayo.v, mayo.o, L, false)...)
 	return esk
 }
 
@@ -139,7 +136,7 @@ func (mayo *Mayo) Sign(esk, m []byte) []byte {
 						u[a] = addMatrices(
 							multiplyMatrices(multiplyMatrices(transposeMatrix(viMatrix), P1[a]), vjMatrix),
 							multiplyMatrices(multiplyMatrices(transposeMatrix(vjMatrix), P1[a]), viMatrix),
-						)[0][0] // TODO: Unnecessary computation?
+						)[0][0]
 					}
 				}
 
@@ -148,13 +145,13 @@ func (mayo *Mayo) Sign(esk, m []byte) []byte {
 
 				for row := 0; row < mayo.m; row++ {
 					for column := i * mayo.o; column < (i+1)*mayo.o; column++ {
-						A[row][column] = (A[row][column] + gf16Mul(byte(l), M[j][row][column-i*mayo.o])) % 0x10 // TODO: Is this good enough, also should it be XOR?
+						A[row][column] = A[row][column] ^ gf16Mul(byte(l), M[j][row][column-i*mayo.o]) // TODO: Is this good enough?
 					}
 				}
 				if i != j {
 					for row := 0; row < mayo.m; row++ {
 						for column := j * mayo.o; column < (j+1)*mayo.o; column++ {
-							A[row][column] = (A[row][column] + gf16Mul(byte(l), M[i][row][column-j*mayo.o])) % 0x10 // TODO: Is this good enough, also should it be XOR?
+							A[row][column] = A[row][column] ^ gf16Mul(byte(l), M[i][row][column-j*mayo.o]) // TODO: Is this good enough?
 						}
 					}
 				}
@@ -188,12 +185,11 @@ func (mayo *Mayo) Sign(esk, m []byte) []byte {
 // if the signature is valid on m. Specifically if the signature is valid it will output 0, if invalid < 0.
 func (mayo *Mayo) Verify(epk, m, sig []byte) int {
 	// Decode epk
-	v := mayo.n - mayo.o // TODO: Remove this and use mayo.v
 	P1ByteString := epk[:mayo.p1Bytes]
 	P2ByteString := epk[mayo.p1Bytes : mayo.p1Bytes+mayo.p2Bytes]
 	P3ByteString := epk[mayo.p1Bytes+mayo.p2Bytes : mayo.p1Bytes+mayo.p2Bytes+mayo.p3Bytes]
-	P1 := decodeMatrixList(mayo.m, v, v, P1ByteString, true)
-	P2 := decodeMatrixList(mayo.m, v, mayo.o, P2ByteString, false)
+	P1 := decodeMatrixList(mayo.m, mayo.v, mayo.v, P1ByteString, true)
+	P2 := decodeMatrixList(mayo.m, mayo.v, mayo.o, P2ByteString, false)
 	P3 := decodeMatrixList(mayo.m, mayo.o, mayo.o, P3ByteString, true)
 
 	// Decode sig
@@ -211,16 +207,7 @@ func (mayo *Mayo) Verify(epk, m, sig []byte) int {
 	t := decodeVec(mayo.m, shake256(int(math.Ceil(float64(mayo.m)*math.Log2(float64(mayo.q))/8)), mDigest, salt))
 
 	// Compute P^*(s)
-	P := mayo.calculateP(P1, P2, P3) // TODO: Is this calculated correctly?
-	/*
-		for _, row := range P[0] {
-			for _, elem := range row {
-				fmt.Printf("%2d ", elem)
-			}
-			fmt.Println()
-		}
-	*/
-
+	P := mayo.calculateP(P1, P2, P3)
 	y := make([]byte, mayo.m)
 	l := 0
 	for i := 0; i < mayo.k; i++ {
@@ -229,7 +216,7 @@ func (mayo *Mayo) Verify(epk, m, sig []byte) int {
 			if i == j {
 				for a := 0; a < mayo.m; a++ {
 					sMatrix := vecToMatrix(si[i])
-					u[a] = multiplyMatrices(multiplyMatrices(transposeMatrix(sMatrix), P[a]), sMatrix)[0][0] % 0x10 // TODO: Reduce mod like this?
+					u[a] = multiplyMatrices(multiplyMatrices(transposeMatrix(sMatrix), P[a]), sMatrix)[0][0]
 				}
 			} else {
 				for a := 0; a < mayo.m; a++ {
