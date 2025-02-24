@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/hex"
 	"fmt"
 	standard "mayo-go/mayo"
 )
@@ -29,8 +30,8 @@ func main() {
 	// Check if the signature is valid
 	valid := mayo.Verify(epk, message, sig)
 	if valid == 0 {
-		fmt.Println(fmt.Sprintf("Sig: '%v' is a valid signature on the message: '%s'", sig, message))
+		fmt.Println(fmt.Sprintf("Sig: '%s' is a valid signature on the message: '%s'", hex.EncodeToString(sig), message))
 	} else {
-		fmt.Println(fmt.Sprintf("Sig: '%s' is not a valid signature on the message: '%s'", sig, message))
+		fmt.Println(fmt.Sprintf("Sig: '%s' is not a valid signature on the message: '%s'", hex.EncodeToString(sig), message))
 	}
 }
