@@ -1,16 +1,14 @@
-﻿package KAT
+﻿package kat
 
 import (
 	"bufio"
 	"encoding/hex"
-	"fmt"
 	"os"
 	"strconv"
 	"strings"
-	"testing"
 )
 
-type katData struct {
+type Data struct {
 	count        int
 	seed         []byte
 	messageLen   int
@@ -21,8 +19,8 @@ type katData struct {
 	signature    []byte
 }
 
-func parseKatData(fileName string) []katData {
-	var katReqDataList []katData
+func parseKatData(fileName string) []Data {
+	var katReqDataList []Data
 
 	// Open file and create scanner on top of it
 	file, err := os.Open(fileName)
@@ -41,7 +39,7 @@ func parseKatData(fileName string) []katData {
 
 	for scanner.Scan() {
 
-		var katReqData katData
+		var katReqData Data
 
 		line := scanner.Text()
 		if line == "" {
@@ -81,7 +79,6 @@ func parseKatData(fileName string) []katData {
 
 func splitAndDecodeInt(input string) int {
 	lineSlice := strings.Split(input, " = ")
-	fmt.Println(lineSlice)
 	value := lineSlice[1]
 	result, err := strconv.Atoi(value)
 
@@ -102,14 +99,4 @@ func splitAndDecodeBytes(input string) []byte {
 	}
 
 	return result
-}
-
-func TestKat1(t *testing.T) {
-	katDataList := parseKatData("PQCsignKAT_24_MAYO_1.rsp")
-
-	for katData := range katDataList {
-
-		fmt.Println(katData)
-
-	}
 }
