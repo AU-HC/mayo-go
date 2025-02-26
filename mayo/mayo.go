@@ -17,18 +17,13 @@ func (mayo *Mayo) CompactKeyGen() ([]byte, []byte, error) {
 		return nil, nil, err
 	}
 
-	cpk, csk := mayo.compactKeyGenFromSeed(seedSk)
-	return cpk, csk, nil
-}
-
-func (mayo *Mayo) compactKeyGenFromSeed(seedSk []byte) ([]byte, []byte) {
 	s := shake256(mayo.pkSeedBytes+mayo.oBytes, seedSk)
 	seedPk := s[:mayo.pkSeedBytes]
 	O := decodeMatrix(mayo.n-mayo.o, mayo.o, s[mayo.pkSeedBytes:mayo.pkSeedBytes+mayo.oBytes])
 
-	p := aes128ctr(seedPk, mayo.p1Bytes+mayo.p2Bytes)
-	P1 := decodeMatrixList(mayo.m, mayo.v, mayo.v, p[:mayo.p1Bytes], true)
-	P2 := decodeMatrixList(mayo.m, mayo.v, mayo.o, p[mayo.p1Bytes:mayo.p1Bytes+mayo.p2Bytes], false)
+	P := aes128ctr(seedPk, mayo.p1Bytes+mayo.p2Bytes)
+	P1 := decodeMatrixList(mayo.m, mayo.v, mayo.v, P[:mayo.p1Bytes], true)
+	P2 := decodeMatrixList(mayo.m, mayo.v, mayo.o, P[mayo.p1Bytes:mayo.p1Bytes+mayo.p2Bytes], false)
 	P3 := make([][][]byte, mayo.m)
 	for i := 0; i < mayo.m; i++ {
 		P3[i] = Upper(multiplyMatrices(transposeMatrix(O), addMatrices(multiplyMatrices(P1[i], O), P2[i])))
@@ -39,19 +34,7 @@ func (mayo *Mayo) compactKeyGenFromSeed(seedSk []byte) ([]byte, []byte) {
 	cpk = append(cpk, encodeMatrixList(mayo.o, mayo.o, P3, true)...)
 	csk := seedSk
 
-	return cpk, csk
-}
-
-func (mayo *Mayo) KeyPairExpFromSeed(seed []byte) ([]byte, []byte) {
-	if len(seed) != mayo.skSeedBytes {
-		panic("Incorrect length of seed")
-	}
-
-	csk, cpk := mayo.compactKeyGenFromSeed(seed)
-	esk := mayo.ExpandSK(csk)
-	epk := mayo.ExpandPK(cpk)
-
-	return epk, esk
+	return cpk, csk, nil
 }
 
 // ExpandSK (Algorithm 5) takes the compacted secret key csk and outputs an expanded secret key esk
