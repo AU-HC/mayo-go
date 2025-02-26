@@ -125,7 +125,7 @@ func (mayo *Mayo) Sign(esk, m []byte) []byte {
 
 		for i := 0; i < mayo.k; i++ {
 			for j := mayo.k - 1; j >= i; j-- {
-				u := make([]byte, mayo.m+(mayo.k*(mayo.k+1)/2)) // TODO: Check
+				u := make([]byte, mayo.m)
 				if i == j {
 					for a := 0; a < mayo.m; a++ {
 						vMatrix := vecToMatrix(v[i])
@@ -166,7 +166,7 @@ func (mayo *Mayo) Sign(esk, m []byte) []byte {
 
 		// Reduce y mod f(x)
 		tailF := []byte{8, 0, 2, 8, 0}
-		for i := 0; i < (mayo.k * (mayo.k + 1) / 2); i++ {
+		for i := 0; i < ell; i++ {
 			for j := 0; j < len(tailF); j++ {
 				y[i+j] ^= gf16Mul(y[i], tailF[j])
 			}
@@ -174,11 +174,12 @@ func (mayo *Mayo) Sign(esk, m []byte) []byte {
 		y = y[:mayo.m]
 
 		// Reduce A mod f(x)
-		for row := 0; row < (mayo.k * (mayo.k + 1) / 2); row++ {
-			for j := 0; j < len(tailF); j++ {
-				for column := 0; column < mayo.k*mayo.o; column++ {
-					A[row+j][column] ^= gf16Mul(A[row+mayo.m][column], tailF[j])
+		for row := mayo.m + ell - 1; row >= mayo.m; row-- {
+			for column := 0; column < mayo.k*mayo.o; column++ {
+				for shift := 0; shift < len(tailF); shift++ {
+					A[row-mayo.m+shift][column] ^= gf16Mul(A[row][column], tailF[shift])
 				}
+				A[row][column] = 0
 			}
 		}
 		A = A[:mayo.m]
@@ -262,7 +263,7 @@ func (mayo *Mayo) Verify(epk, m, sig []byte) int {
 
 	// Reduce y mod f(x)
 	tailF := []byte{8, 0, 2, 8, 0}
-	for i := 0; i < (mayo.k * (mayo.k + 1) / 2); i++ {
+	for i := 0; i < ell; i++ {
 		for j := 0; j < len(tailF); j++ {
 			y[i+j] ^= gf16Mul(y[i], tailF[j])
 		}
