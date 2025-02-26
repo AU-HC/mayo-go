@@ -11,12 +11,17 @@ import (
 // return an error, if it fails to generate random bytes.
 func (mayo *Mayo) CompactKeyGen() ([]byte, []byte, error) {
 	seedSk := make([]byte, mayo.skSeedBytes)
-	rand := cryptoRand.Reader // TODO: refactor this prob
+	rand := cryptoRand.Reader
 	_, err := io.ReadFull(rand, seedSk[:])
 	if err != nil {
 		return nil, nil, err
 	}
 
+	cpk, csk := mayo.compactKeyGenFromSeed(seedSk)
+	return cpk, csk, nil
+}
+
+func (mayo *Mayo) compactKeyGenFromSeed(seedSk []byte) ([]byte, []byte) {
 	s := shake256(mayo.pkSeedBytes+mayo.oBytes, seedSk)
 	seedPk := s[:mayo.pkSeedBytes]
 	O := decodeMatrix(mayo.n-mayo.o, mayo.o, s[mayo.pkSeedBytes:mayo.pkSeedBytes+mayo.oBytes])
@@ -34,7 +39,19 @@ func (mayo *Mayo) CompactKeyGen() ([]byte, []byte, error) {
 	cpk = append(cpk, encodeMatrixList(mayo.o, mayo.o, P3, true)...)
 	csk := seedSk
 
-	return cpk, csk, nil
+	return cpk, csk
+}
+
+func (mayo *Mayo) KeyPairExpFromSeed(seed []byte) ([]byte, []byte) {
+	if len(seed) != mayo.skSeedBytes {
+		panic("Incorrect length of seed")
+	}
+
+	csk, cpk := mayo.compactKeyGenFromSeed(seed)
+	esk := mayo.ExpandSK(csk)
+	epk := mayo.ExpandPK(cpk)
+
+	return epk, esk
 }
 
 // ExpandSK (Algorithm 5) takes the compacted secret key csk and outputs an expanded secret key esk
