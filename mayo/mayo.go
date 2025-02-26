@@ -110,14 +110,14 @@ func (mayo *Mayo) Sign(esk, m []byte) []byte {
 		// Build linear system Ax = y
 		A := generateZeroMatrix(mayo.m+(mayo.k*(mayo.k+1)/2), mayo.k*mayo.o) // TODO: Check
 		y := make([]byte, mayo.m+(mayo.k*(mayo.k+1)/2))                      // TODO: Check
-		copy(y, t)
+		copy(y[:mayo.m], t)
 		ell := 0
 		M := make([][][]byte, mayo.k)
 		for i := 0; i < mayo.k; i++ {
 			mi := generateZeroMatrix(mayo.m, mayo.o)
 
 			for j := 0; j < mayo.m; j++ {
-				mi[j] = multiplyMatrices(transposeMatrix(vecToMatrix(v[i])), L[j])[0]
+				mi[j] = multiplyMatrices(transposeVector(v[i]), L[j])[0]
 			}
 
 			M[i] = mi
@@ -129,33 +129,34 @@ func (mayo *Mayo) Sign(esk, m []byte) []byte {
 				if i == j {
 					for a := 0; a < mayo.m; a++ {
 						vMatrix := vecToMatrix(v[i])
-						u[a] = multiplyMatrices(multiplyMatrices(transposeMatrix(vMatrix), P1[a]), vMatrix)[0][0]
+						u[a] = multiplyMatrices(multiplyMatrices(transposeVector(v[i]), P1[a]), vMatrix)[0][0]
 					}
 				} else {
 					for a := 0; a < mayo.m; a++ {
 						viMatrix := vecToMatrix(v[i])
 						vjMatrix := vecToMatrix(v[j])
 						u[a] = addMatrices(
-							multiplyMatrices(multiplyMatrices(transposeMatrix(viMatrix), P1[a]), vjMatrix),
-							multiplyMatrices(multiplyMatrices(transposeMatrix(vjMatrix), P1[a]), viMatrix),
+							multiplyMatrices(multiplyMatrices(transposeVector(v[i]), P1[a]), vjMatrix),
+							multiplyMatrices(multiplyMatrices(transposeVector(v[j]), P1[a]), viMatrix),
 						)[0][0]
 					}
 				}
 
+				// Calculate y = y - z^l * u
 				for d := 0; d < mayo.m; d++ {
 					y[d+ell] ^= u[d]
 				}
 
-				// Make this one for loop
+				// TODO: Make this one for loop
 				for row := 0; row < mayo.m; row++ {
 					for column := i * mayo.o; column < (i+1)*mayo.o; column++ {
-						A[row+ell][column] ^= M[j][row][column-i*mayo.o] // TODO: Is this correct?
+						A[row+ell][column] ^= M[j][row][column%mayo.o] // TODO: Is this correct?
 					}
 				}
 				if i != j {
 					for row := 0; row < mayo.m; row++ {
 						for column := j * mayo.o; column < (j+1)*mayo.o; column++ {
-							A[row+ell][column] ^= M[i][row][column-j*mayo.o] // TODO: Is this correct?
+							A[row+ell][column] ^= M[i][row][column%mayo.o] // TODO: Is this correct?
 						}
 					}
 				}
@@ -164,7 +165,7 @@ func (mayo *Mayo) Sign(esk, m []byte) []byte {
 			}
 		}
 
-		// Reduce y and A (columns) mod f(x)
+		// Reduce y and the columns of A mod f(x)
 		y = mayo.reduceVecModF(y, ell)
 		A = mayo.reduceAModF(A, ell)
 
@@ -179,8 +180,8 @@ func (mayo *Mayo) Sign(esk, m []byte) []byte {
 	var s []byte
 	for i := 0; i < mayo.k; i++ {
 		xIndexed := x[i*mayo.o : (i+1)*mayo.o]
-		viOx := transposeMatrix(addMatrices(vecToMatrix(v[i]), multiplyMatrices(O, vecToMatrix(xIndexed))))[0]
-		s = append(s, viOx...)
+		OX := transposeMatrix(addMatrices(vecToMatrix(v[i]), multiplyMatrices(O, vecToMatrix(xIndexed))))[0]
+		s = append(s, OX...)
 		s = append(s, xIndexed...)
 	}
 	var sig []byte
@@ -224,19 +225,20 @@ func (mayo *Mayo) Verify(epk, m, sig []byte) int {
 			if i == j {
 				for a := 0; a < mayo.m; a++ {
 					sMatrix := vecToMatrix(si[i])
-					u[a] = multiplyMatrices(multiplyMatrices(transposeMatrix(sMatrix), P[a]), sMatrix)[0][0]
+					u[a] = multiplyMatrices(multiplyMatrices(transposeVector(si[i]), P[a]), sMatrix)[0][0]
 				}
 			} else {
 				for a := 0; a < mayo.m; a++ {
 					siMatrix := vecToMatrix(si[i])
 					sjMatrix := vecToMatrix(si[j])
 					u[a] = addMatrices(
-						multiplyMatrices(multiplyMatrices(transposeMatrix(siMatrix), P[a]), sjMatrix),
-						multiplyMatrices(multiplyMatrices(transposeMatrix(sjMatrix), P[a]), siMatrix),
+						multiplyMatrices(multiplyMatrices(transposeVector(si[i]), P[a]), sjMatrix),
+						multiplyMatrices(multiplyMatrices(transposeVector(si[j]), P[a]), siMatrix),
 					)[0][0]
 				}
 			}
 
+			// Calculate y = y - z^l * u
 			for d := 0; d < mayo.m; d++ {
 				y[d+ell] ^= u[d]
 			}

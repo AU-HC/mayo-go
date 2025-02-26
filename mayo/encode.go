@@ -143,6 +143,12 @@ func vecToMatrix(vec []byte) [][]byte {
 	return matrix
 }
 
+func transposeVector(vec []byte) [][]byte {
+	matrix := make([][]byte, 1)
+	matrix[0] = vec
+	return matrix
+}
+
 func printMatrix(matrix [][][]byte) {
 	for _, row := range matrix[0] {
 		for _, elem := range row {
@@ -150,4 +156,14 @@ func printMatrix(matrix [][][]byte) {
 		}
 		fmt.Println()
 	}
+}
+
+func printSingleMatrix(matrix [][]byte) {
+	for _, row := range matrix {
+		for _, elem := range row {
+			fmt.Printf("%2d ", elem)
+		}
+		fmt.Println()
+	}
+	fmt.Println("===============")
 }
