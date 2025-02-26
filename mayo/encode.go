@@ -117,6 +117,24 @@ func encodeMatrixList(r, c int, matrices [][][]byte, isUpperTriangular bool) []b
 	return encoded
 }
 
+func Upper(matrix [][]byte) [][]byte {
+	n := len(matrix) // Assuming square matrices
+
+	for i := 0; i < n; i++ {
+		for j := i + 1; j < n; j++ {
+			matrix[i][j] = matrix[i][j] ^ matrix[j][i] // Update upper triangular part
+		}
+	}
+
+	for i := 0; i < n; i++ {
+		for j := 0; j < i; j++ {
+			matrix[i][j] = 0 // Zero out the lower triangular part
+		}
+	}
+
+	return matrix
+}
+
 func vecToMatrix(vec []byte) [][]byte {
 	matrix := make([][]byte, len(vec))
 	for i, elem := range vec {

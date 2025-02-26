@@ -26,7 +26,7 @@ func (mayo *Mayo) CompactKeyGen() ([]byte, []byte, error) {
 	P2 := decodeMatrixList(mayo.m, mayo.v, mayo.o, p[mayo.p1Bytes:mayo.p1Bytes+mayo.p2Bytes], false)
 	P3 := make([][][]byte, mayo.m)
 	for i := 0; i < mayo.m; i++ {
-		P3[i] = multiplyMatrices(transposeMatrix(O), addMatrices(multiplyMatrices(P1[i], O), P2[i]))
+		P3[i] = Upper(multiplyMatrices(transposeMatrix(O), addMatrices(multiplyMatrices(P1[i], O), P2[i])))
 	}
 
 	var cpk []byte // TODO: is this a slow way of appended bytes? (General for entire file)
@@ -100,16 +100,18 @@ func (mayo *Mayo) Sign(esk, m []byte) []byte {
 	v := make([][]byte, mayo.k)
 	for ctr := 0; ctr < 256; ctr++ {
 		// Derive v_i and r
-		V := shake256(mayo.k*mayo.vBytes + int(math.Ceil(float64(mayo.k)*float64(mayo.o)*math.Log2(float64(mayo.q))/8)))
+		V := shake256(mayo.k*mayo.vBytes+int(math.Ceil(float64(mayo.k)*float64(mayo.o)*math.Log2(float64(mayo.q))/8)),
+			mDigest, salt, seedSk, []byte{byte(ctr)})
 		for i := 0; i < mayo.k; i++ {
 			v[i] = decodeVec(mayo.n-mayo.o, V[i*mayo.vBytes:(i+1)*mayo.vBytes])
 		}
 		r := decodeVec(mayo.k*mayo.o, V[mayo.k*mayo.vBytes:mayo.k*mayo.vBytes+int(math.Ceil(float64(mayo.k)*float64(mayo.o)*math.Log2(float64(mayo.q))/8))])
 
 		// Build linear system Ax = y
-		A := generateZeroMatrix(mayo.m, mayo.k*mayo.o)
-		y := t
-		l := 0
+		A := generateZeroMatrix(mayo.m+(mayo.k*(mayo.k+1)/2), mayo.k*mayo.o) // TODO: Check
+		y := make([]byte, mayo.m+(mayo.k*(mayo.k+1)/2))                      // TODO: Check
+		copy(y, t)
+		ell := 0
 		M := make([][][]byte, mayo.k)
 		for i := 0; i < mayo.k; i++ {
 			mi := generateZeroMatrix(mayo.m, mayo.o)
@@ -123,7 +125,7 @@ func (mayo *Mayo) Sign(esk, m []byte) []byte {
 
 		for i := 0; i < mayo.k; i++ {
 			for j := mayo.k - 1; j >= i; j-- {
-				u := make([]byte, mayo.m)
+				u := make([]byte, mayo.m+(mayo.k*(mayo.k+1)/2)) // TODO: Check
 				if i == j {
 					for a := 0; a < mayo.m; a++ {
 						vMatrix := vecToMatrix(v[i])
@@ -140,25 +142,46 @@ func (mayo *Mayo) Sign(esk, m []byte) []byte {
 					}
 				}
 
-				// TODO: Check how to use l in relation to E^l
-				y = subVec(y, multiplyVecConstant(byte(l), u))
+				for d := 0; d < mayo.m; d++ {
+					y[d+ell] ^= u[d]
+				}
 
+				// Make this one for loop
 				for row := 0; row < mayo.m; row++ {
 					for column := i * mayo.o; column < (i+1)*mayo.o; column++ {
-						A[row][column] = A[row][column] ^ gf16Mul(byte(l), M[j][row][column-i*mayo.o]) // TODO: Is this good enough?
+						A[row+ell][column] ^= M[j][row][column-i*mayo.o] // TODO: Is this correct?
 					}
 				}
 				if i != j {
 					for row := 0; row < mayo.m; row++ {
 						for column := j * mayo.o; column < (j+1)*mayo.o; column++ {
-							A[row][column] = A[row][column] ^ gf16Mul(byte(l), M[i][row][column-j*mayo.o]) // TODO: Is this good enough?
+							A[row+ell][column] ^= M[i][row][column-j*mayo.o] // TODO: Is this correct?
 						}
 					}
 				}
 
-				l++
+				ell += 1
 			}
 		}
+
+		// Reduce y mod f(x)
+		tailF := []byte{8, 0, 2, 8, 0}
+		for i := 0; i < (mayo.k * (mayo.k + 1) / 2); i++ {
+			for j := 0; j < len(tailF); j++ {
+				y[i+j] ^= gf16Mul(y[i], tailF[j])
+			}
+		}
+		y = y[:mayo.m]
+
+		// Reduce A mod f(x)
+		for row := 0; row < (mayo.k * (mayo.k + 1) / 2); row++ {
+			for j := 0; j < len(tailF); j++ {
+				for column := 0; column < mayo.k*mayo.o; column++ {
+					A[row+j][column] ^= gf16Mul(A[row+mayo.m][column], tailF[j])
+				}
+			}
+		}
+		A = A[:mayo.m]
 
 		// Try to solve the system
 		x, hasSolution = mayo.SampleSolution(A, y, r)
@@ -208,8 +231,8 @@ func (mayo *Mayo) Verify(epk, m, sig []byte) int {
 
 	// Compute P^*(s)
 	P := mayo.calculateP(P1, P2, P3)
-	y := make([]byte, mayo.m)
-	l := 0
+	y := make([]byte, mayo.m+(mayo.k*(mayo.k+1)/2))
+	ell := 0
 	for i := 0; i < mayo.k; i++ {
 		for j := mayo.k - 1; j >= i; j-- {
 			u := make([]byte, mayo.m)
@@ -226,14 +249,25 @@ func (mayo *Mayo) Verify(epk, m, sig []byte) int {
 						multiplyMatrices(multiplyMatrices(transposeMatrix(siMatrix), P[a]), sjMatrix),
 						multiplyMatrices(multiplyMatrices(transposeMatrix(sjMatrix), P[a]), siMatrix),
 					)[0][0]
-
 				}
 			}
-			// TODO: Check how to use l in relation to E^l
-			y = addVectors(y, multiplyVecConstant(byte(l), u))
-			l++
+
+			for d := 0; d < mayo.m; d++ {
+				y[d+ell] ^= u[d]
+			}
+
+			ell += 1
 		}
 	}
+
+	// Reduce y mod f(x)
+	tailF := []byte{8, 0, 2, 8, 0}
+	for i := 0; i < (mayo.k * (mayo.k + 1) / 2); i++ {
+		for j := 0; j < len(tailF); j++ {
+			y[i+j] ^= gf16Mul(y[i], tailF[j])
+		}
+	}
+	y = y[:mayo.m]
 
 	// Accept the signature if y = t
 	if bytes.Equal(y, t) {
