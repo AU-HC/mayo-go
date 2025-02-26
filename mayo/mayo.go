@@ -49,9 +49,9 @@ func (mayo *Mayo) ExpandSK(csk []byte) []byte {
 	O := decodeMatrix(mayo.n-mayo.o, mayo.o, oByteString)
 
 	// Derive P1 and P2 from seedPk
-	p := aes128ctr(seedPk, mayo.p1Bytes+mayo.p2Bytes)
-	P1 := decodeMatrixList(mayo.m, mayo.v, mayo.v, p[:mayo.p1Bytes], true)
-	P2 := decodeMatrixList(mayo.m, mayo.v, mayo.o, p[mayo.p1Bytes:mayo.p1Bytes+mayo.p2Bytes], false)
+	P := aes128ctr(seedPk, mayo.p1Bytes+mayo.p2Bytes)
+	P1 := decodeMatrixList(mayo.m, mayo.v, mayo.v, P[:mayo.p1Bytes], true)
+	P2 := decodeMatrixList(mayo.m, mayo.v, mayo.o, P[mayo.p1Bytes:mayo.p1Bytes+mayo.p2Bytes], false)
 
 	// Compute the L
 	L := make([][][]byte, mayo.m)
@@ -63,7 +63,7 @@ func (mayo *Mayo) ExpandSK(csk []byte) []byte {
 	var esk []byte
 	esk = append(esk, seedSk...)
 	esk = append(esk, oByteString...)
-	esk = append(esk, p[:mayo.p1Bytes]...)
+	esk = append(esk, P[:mayo.p1Bytes]...)
 	esk = append(esk, encodeMatrixList(mayo.v, mayo.o, L, false)...)
 	return esk
 }
@@ -164,25 +164,9 @@ func (mayo *Mayo) Sign(esk, m []byte) []byte {
 			}
 		}
 
-		// Reduce y mod f(x)
-		tailF := []byte{8, 0, 2, 8, 0}
-		for i := 0; i < ell; i++ {
-			for j := 0; j < len(tailF); j++ {
-				y[i+j] ^= gf16Mul(y[i], tailF[j])
-			}
-		}
-		y = y[:mayo.m]
-
-		// Reduce A mod f(x)
-		for row := mayo.m + ell - 1; row >= mayo.m; row-- {
-			for column := 0; column < mayo.k*mayo.o; column++ {
-				for shift := 0; shift < len(tailF); shift++ {
-					A[row-mayo.m+shift][column] ^= gf16Mul(A[row][column], tailF[shift])
-				}
-				A[row][column] = 0
-			}
-		}
-		A = A[:mayo.m]
+		// Reduce y and A (columns) mod f(x)
+		y = mayo.reduceVecModF(y, ell)
+		A = mayo.reduceAModF(A, ell)
 
 		// Try to solve the system
 		x, hasSolution = mayo.SampleSolution(A, y, r)
@@ -262,19 +246,41 @@ func (mayo *Mayo) Verify(epk, m, sig []byte) int {
 	}
 
 	// Reduce y mod f(x)
-	tailF := []byte{8, 0, 2, 8, 0}
-	for i := 0; i < ell; i++ {
-		for j := 0; j < len(tailF); j++ {
-			y[i+j] ^= gf16Mul(y[i], tailF[j])
-		}
-	}
-	y = y[:mayo.m]
+	y = mayo.reduceVecModF(y, ell)
 
 	// Accept the signature if y = t
 	if bytes.Equal(y, t) {
 		return 0
 	}
 	return -1
+}
+
+func (mayo *Mayo) reduceVecModF(y []byte, ell int) []byte { // TODO: Refactor so ell is not needed
+	tailF := []byte{8, 0, 2, 8, 0}
+	for i := mayo.m + ell - 1; i >= mayo.m; i-- {
+		for shift, coefficient := range tailF {
+			y[i-mayo.m+shift] ^= gf16Mul(y[i], coefficient)
+		}
+		y[i] = 0
+	}
+	y = y[:mayo.m]
+
+	return y
+}
+
+func (mayo *Mayo) reduceAModF(A [][]byte, ell int) [][]byte { // TODO: Refactor so ell is not needed
+	tailF := []byte{8, 0, 2, 8, 0}
+	for row := mayo.m + ell - 1; row >= mayo.m; row-- {
+		for column := 0; column < mayo.k*mayo.o; column++ {
+			for shift := 0; shift < len(tailF); shift++ {
+				A[row-mayo.m+shift][column] ^= gf16Mul(A[row][column], tailF[shift])
+			}
+			A[row][column] = 0
+		}
+	}
+	A = A[:mayo.m]
+
+	return A
 }
 
 func (mayo *Mayo) calculateP(P1, P2, P3 [][][]byte) [][][]byte {
