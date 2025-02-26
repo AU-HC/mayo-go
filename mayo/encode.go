@@ -117,6 +117,7 @@ func encodeMatrixList(r, c int, matrices [][][]byte, isUpperTriangular bool) []b
 	return encoded
 }
 
+// TODO: Can optimize matrix[j][i] = 0? and delete other loop
 func Upper(matrix [][]byte) [][]byte {
 	n := len(matrix) // Assuming square matrices
 

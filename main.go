@@ -31,6 +31,7 @@ func main() {
 	valid := mayo.Verify(epk, message, sig)
 	if valid == 0 {
 		fmt.Println(fmt.Sprintf("Sig: '%s' is a valid signature on the message: '%s'", hex.EncodeToString(sig), message))
+		fmt.Println("****************************************************************************************************")
 	} else {
 		fmt.Println(fmt.Sprintf("Sig: '%s' is not a valid signature on the message: '%s'", hex.EncodeToString(sig), message))
 	}

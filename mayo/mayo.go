@@ -29,7 +29,7 @@ func (mayo *Mayo) CompactKeyGen() ([]byte, []byte, error) {
 		P3[i] = Upper(multiplyMatrices(transposeMatrix(O), addMatrices(multiplyMatrices(P1[i], O), P2[i])))
 	}
 
-	var cpk []byte // TODO: is this a slow way of appended bytes? (General for entire file)
+	var cpk []byte // TODO: is this a slow way of appended bytes? (General for entire file) https://stackoverflow.com/questions/38654729/golang-slice-append-vs-assign-performance
 	cpk = append(cpk, seedPk...)
 	cpk = append(cpk, encodeMatrixList(mayo.o, mayo.o, P3, true)...)
 	csk := seedSk
@@ -90,7 +90,7 @@ func (mayo *Mayo) Sign(esk, m []byte) []byte {
 
 	// Hash the message, and derive salt and t
 	mDigest := shake256(mayo.digestBytes, m)
-	R := make([]byte, mayo.rBytes) // TODO: add randomization?
+	R := make([]byte, mayo.rBytes) // TODO: add randomization
 	salt := shake256(mayo.saltBytes, mDigest, R, seedSk)
 	t := decodeVec(mayo.m, shake256(int(math.Ceil(float64(mayo.m)*math.Log2(float64(mayo.q))/8.0)), mDigest, salt))
 
@@ -108,8 +108,8 @@ func (mayo *Mayo) Sign(esk, m []byte) []byte {
 		r := decodeVec(mayo.k*mayo.o, V[mayo.k*mayo.vBytes:mayo.k*mayo.vBytes+int(math.Ceil(float64(mayo.k)*float64(mayo.o)*math.Log2(float64(mayo.q))/8))])
 
 		// Build linear system Ax = y
-		A := generateZeroMatrix(mayo.m+(mayo.k*(mayo.k+1)/2), mayo.k*mayo.o) // TODO: Check
-		y := make([]byte, mayo.m+(mayo.k*(mayo.k+1)/2))                      // TODO: Check
+		A := generateZeroMatrix(mayo.m+mayo.shifts, mayo.k*mayo.o) // TODO: Check
+		y := make([]byte, mayo.m+mayo.shifts)                      // TODO: Check, maybe introduce variable for max(ell)
 		copy(y[:mayo.m], t)
 		ell := 0
 		M := make([][][]byte, mayo.k)
@@ -147,16 +147,16 @@ func (mayo *Mayo) Sign(esk, m []byte) []byte {
 					y[d+ell] ^= u[d]
 				}
 
-				// TODO: Make this one for loop
+				// TODO: Make this one for loop?
 				for row := 0; row < mayo.m; row++ {
 					for column := i * mayo.o; column < (i+1)*mayo.o; column++ {
-						A[row+ell][column] ^= M[j][row][column%mayo.o] // TODO: Is this correct?
+						A[row+ell][column] ^= M[j][row][column%mayo.o]
 					}
 				}
 				if i != j {
 					for row := 0; row < mayo.m; row++ {
 						for column := j * mayo.o; column < (j+1)*mayo.o; column++ {
-							A[row+ell][column] ^= M[i][row][column%mayo.o] // TODO: Is this correct?
+							A[row+ell][column] ^= M[i][row][column%mayo.o]
 						}
 					}
 				}
@@ -166,8 +166,8 @@ func (mayo *Mayo) Sign(esk, m []byte) []byte {
 		}
 
 		// Reduce y and the columns of A mod f(x)
-		y = mayo.reduceVecModF(y, ell)
-		A = mayo.reduceAModF(A, ell)
+		y = mayo.reduceVecModF(y)
+		A = mayo.reduceAModF(A)
 
 		// Try to solve the system
 		x, hasSolution = mayo.SampleSolution(A, y, r)
@@ -205,10 +205,10 @@ func (mayo *Mayo) Verify(epk, m, sig []byte) int {
 	nkHalf := int(math.Ceil(float64(mayo.n) * float64(mayo.k) / 2.0))
 	salt := sig[nkHalf : nkHalf+mayo.saltBytes]
 	s := decodeVec(mayo.k*mayo.n, sig)
-	si := make([][]byte, mayo.k)
+	sVector := make([][]byte, mayo.k)
 	for i := 0; i < mayo.k; i++ {
-		si[i] = make([]byte, mayo.n)
-		copy(si[i], s[i*mayo.n:(i+1)*mayo.n])
+		sVector[i] = make([]byte, mayo.n)
+		copy(sVector[i], s[i*mayo.n:(i+1)*mayo.n])
 	}
 
 	// Hash the message and derive t
@@ -224,16 +224,16 @@ func (mayo *Mayo) Verify(epk, m, sig []byte) int {
 			u := make([]byte, mayo.m)
 			if i == j {
 				for a := 0; a < mayo.m; a++ {
-					sMatrix := vecToMatrix(si[i])
-					u[a] = multiplyMatrices(multiplyMatrices(transposeVector(si[i]), P[a]), sMatrix)[0][0]
+					siMatrix := vecToMatrix(sVector[i])
+					u[a] = multiplyMatrices(multiplyMatrices(transposeVector(sVector[i]), P[a]), siMatrix)[0][0]
 				}
 			} else {
 				for a := 0; a < mayo.m; a++ {
-					siMatrix := vecToMatrix(si[i])
-					sjMatrix := vecToMatrix(si[j])
+					siMatrix := vecToMatrix(sVector[i])
+					sjMatrix := vecToMatrix(sVector[j])
 					u[a] = addMatrices(
-						multiplyMatrices(multiplyMatrices(transposeVector(si[i]), P[a]), sjMatrix),
-						multiplyMatrices(multiplyMatrices(transposeVector(si[j]), P[a]), siMatrix),
+						multiplyMatrices(multiplyMatrices(transposeVector(sVector[i]), P[a]), sjMatrix),
+						multiplyMatrices(multiplyMatrices(transposeVector(sVector[j]), P[a]), siMatrix),
 					)[0][0]
 				}
 			}
@@ -248,7 +248,7 @@ func (mayo *Mayo) Verify(epk, m, sig []byte) int {
 	}
 
 	// Reduce y mod f(x)
-	y = mayo.reduceVecModF(y, ell)
+	y = mayo.reduceVecModF(y)
 
 	// Accept the signature if y = t
 	if bytes.Equal(y, t) {
@@ -257,9 +257,9 @@ func (mayo *Mayo) Verify(epk, m, sig []byte) int {
 	return -1
 }
 
-func (mayo *Mayo) reduceVecModF(y []byte, ell int) []byte { // TODO: Refactor so ell is not needed
+func (mayo *Mayo) reduceVecModF(y []byte) []byte { // TODO: Refactor so ell is not needed
 	tailF := []byte{8, 0, 2, 8, 0}
-	for i := mayo.m + ell - 1; i >= mayo.m; i-- {
+	for i := mayo.m + mayo.shifts - 1; i >= mayo.m; i-- {
 		for shift, coefficient := range tailF {
 			y[i-mayo.m+shift] ^= gf16Mul(y[i], coefficient)
 		}
@@ -270,9 +270,9 @@ func (mayo *Mayo) reduceVecModF(y []byte, ell int) []byte { // TODO: Refactor so
 	return y
 }
 
-func (mayo *Mayo) reduceAModF(A [][]byte, ell int) [][]byte { // TODO: Refactor so ell is not needed
+func (mayo *Mayo) reduceAModF(A [][]byte) [][]byte { // TODO: Refactor so ell is not needed
 	tailF := []byte{8, 0, 2, 8, 0}
-	for row := mayo.m + ell - 1; row >= mayo.m; row-- {
+	for row := mayo.m + mayo.shifts - 1; row >= mayo.m; row-- {
 		for column := 0; column < mayo.k*mayo.o; column++ {
 			for shift := 0; shift < len(tailF); shift++ {
 				A[row-mayo.m+shift][column] ^= gf16Mul(A[row][column], tailF[shift])

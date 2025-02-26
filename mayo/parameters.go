@@ -13,7 +13,7 @@ type Mayo struct {
 	skSeedBytes, oBytes, vBytes, p1Bytes, p2Bytes, p3Bytes, lBytes, cskBytes, eskBytes, cpkBytes, epkBytes, sigBytes, rBytes int
 	E                                                                                                                        [][]byte
 	// Lastly we have variables that are not defined in the spec, but help make the code more readable
-	v int
+	v, shifts int
 
 	mulTable [][]byte
 	invTable []byte
@@ -71,11 +71,10 @@ func initMayo(n, m, o, k, q, saltBytes, digestBytes, pkSeedBytes int) *Mayo {
 	cpkBytes := pkSeedBytes + p3Bytes
 	epkBytes := p1Bytes + p2Bytes + p3Bytes
 	sigBytes := int(math.Ceil(float64(n*k)/2.0)) + saltBytes
-	E := make([][]byte, q) // TODO: Generate this multiplication table
-
-	mulTable, invTable := generateMulTable()
+	mulTable, invTable := generateMulTable() // TODO: Use these
 
 	v := n - o
+	shifts := k * (k + 1) / 2
 
 	return &Mayo{
 		q:           q,
@@ -100,8 +99,8 @@ func initMayo(n, m, o, k, q, saltBytes, digestBytes, pkSeedBytes int) *Mayo {
 		epkBytes:    epkBytes,
 		sigBytes:    sigBytes,
 		rBytes:      skSeedBytes,
-		E:           E,
 		v:           v,
+		shifts:      shifts,
 		invTable:    invTable,
 		mulTable:    mulTable,
 	}
