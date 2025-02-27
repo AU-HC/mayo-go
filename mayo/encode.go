@@ -3,15 +3,15 @@ package mayo
 import "fmt"
 
 // encodeVec encodes a byte slice into a byte slice of half the length
-func encodeVec(bytes []byte) []byte {
-	encoded := make([]byte, (len(bytes)+1)/2)
+func encodeVec(byteString []byte) []byte {
+	encoded := make([]byte, (len(byteString)+1)/2)
 
-	for i := 0; i < len(bytes)-1; i += 2 {
-		encoded[i/2] = (bytes[i] & 0xf) | (bytes[i+1] << 4)
+	for i := 0; i < len(byteString)-1; i += 2 {
+		encoded[i/2] = (byteString[i] & 0xf) | (byteString[i+1] << 4)
 	}
 
-	if (len(bytes) % 2) == 1 {
-		encoded[(len(bytes)-1)/2] = bytes[len(bytes)-1]
+	if (len(byteString) % 2) == 1 {
+		encoded[(len(byteString)-1)/2] = byteString[len(byteString)-1]
 	}
 
 	return encoded
@@ -19,12 +19,12 @@ func encodeVec(bytes []byte) []byte {
 
 // decodeVec decodes a byte slice into a byte slice of length n
 // where n is the length of the original byte slice (to accommodate for odd n)
-func decodeVec(n int, bytes []byte) []byte {
+func decodeVec(n int, byteString []byte) []byte {
 	decoded := make([]byte, n)
-	var i int
-	for i = 0; i < n/2; i++ {
-		firstNibble := bytes[i] & 0xf
-		secondNibble := bytes[i] >> 4
+
+	for i := 0; i < n/2; i++ {
+		firstNibble := byteString[i] & 0xf
+		secondNibble := byteString[i] >> 4
 
 		decoded[i*2] = firstNibble
 		decoded[i*2+1] = secondNibble
@@ -32,17 +32,17 @@ func decodeVec(n int, bytes []byte) []byte {
 
 	// if 'n' is odd, then fix last nibble. Not second nibble present in the last byte
 	if n%2 == 1 {
-		decoded[n-1] = bytes[n/2] & 0xf
+		decoded[n-1] = byteString[n/2] & 0xf
 	}
 
 	return decoded
 }
 
 // encodeMatrix encodes a matrix of byte slices into a single byte slice
-func encodeMatrix(bytes [][]byte) []byte {
+func encodeMatrix(byteString [][]byte) []byte {
 	var encoded []byte
 
-	for _, row := range bytes {
+	for _, row := range byteString {
 		encodedRow := encodeVec(row)
 		// TODO: Consider allocating before
 		encoded = append(encoded, encodedRow...)
@@ -63,8 +63,8 @@ func decodeMatrix(rows, columns int, bytes []byte) [][]byte {
 	return decodedMatrix
 }
 
-// decodeMatrixList decodes a byte slice into a list of matrices of byte slices
-func decodeMatrixList(m, r, c int, bytes []byte, isUpperTriangular bool) [][][]byte {
+// decodeMatrices decodes a byte slice into a list of matrices of byte slices
+func decodeMatrices(m, r, c int, byteString []byte, isUpperTriangular bool) [][][]byte {
 	// Initialize the list of matrices with zero values
 	matrices := make([][][]byte, m)
 	for k := 0; k < m; k++ {
@@ -74,20 +74,23 @@ func decodeMatrixList(m, r, c int, bytes []byte, isUpperTriangular bool) [][][]b
 		}
 	}
 
-	index := 0
+	originalVecLength := m // Since each column has m elements
+	encodedVecLength := originalVecLength / 2
+	currentIndex := 0
+
 	for i := 0; i < r; i++ {
 		for j := 0; j < c; j++ {
 			if i <= j || !isUpperTriangular {
 				// Decode the next vector from the byte slice of nipples
-				originalVecLength := m                    // Since each column has m elements
-				encodedVecLength := originalVecLength / 2 // TODO: consider odd?
-				decodedVec := decodeVec(m, bytes[index:index+encodedVecLength])
-				index += encodedVecLength
+				currentEnd := currentIndex + encodedVecLength
+				decodedVec := decodeVec(m, byteString[currentIndex:currentEnd])
 
 				// Assign values to the matrices
-				for k := 0; k < m; k++ {
-					matrices[k][i][j] = decodedVec[k]
+				for k, elem := range decodedVec {
+					matrices[k][i][j] = elem
 				}
+
+				currentIndex = currentEnd
 			}
 		}
 	}
@@ -95,8 +98,9 @@ func decodeMatrixList(m, r, c int, bytes []byte, isUpperTriangular bool) [][][]b
 	return matrices
 }
 
-// encodeMatrixList encodes a list of matrices of byte slices into a single byte slice. Makes use of the isUpperTriangular flag to encode only the upper triangular part of the matrices
-func encodeMatrixList(r, c int, matrices [][][]byte, isUpperTriangular bool) []byte {
+// encodeMatrices encodes a list of matrices of byte slices into a single byte slice. Makes use of the isUpperTriangular
+// flag to encode only the upper triangular part of the matrices
+func encodeMatrices(r, c int, matrices [][][]byte, isUpperTriangular bool) []byte {
 	var encoded []byte
 	m := len(matrices)
 
@@ -117,19 +121,13 @@ func encodeMatrixList(r, c int, matrices [][][]byte, isUpperTriangular bool) []b
 	return encoded
 }
 
-// TODO: Can optimize matrix[j][i] = 0? and delete other loop
-func Upper(matrix [][]byte) [][]byte {
-	n := len(matrix) // Assuming square matrices
+func upper(matrix [][]byte) [][]byte {
+	n := len(matrix)
 
 	for i := 0; i < n; i++ {
 		for j := i + 1; j < n; j++ {
 			matrix[i][j] = matrix[i][j] ^ matrix[j][i] // Update upper triangular part
-		}
-	}
-
-	for i := 0; i < n; i++ {
-		for j := 0; j < i; j++ {
-			matrix[i][j] = 0 // Zero out the lower triangular part
+			matrix[j][i] = 0
 		}
 	}
 

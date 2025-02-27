@@ -16,7 +16,7 @@ func TestKat1(t *testing.T) {
 			t.Error(err)
 		}
 
-		epk, esk := mayo.KeyPairExpFromSeed(katDataaaa.seed)
+		epk, esk, err := mayo.CompactKeyGen()
 
 		if !bytes.Equal(epk, katDataaaa.pk) {
 			t.Error("Generated PK and KAT PK are not equal", epk, katDataaaa.pk)

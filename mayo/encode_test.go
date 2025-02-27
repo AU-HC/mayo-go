@@ -197,8 +197,8 @@ func TestEncodeDecodeMatrixListNonUpperTriangular(t *testing.T) {
 		matrices[i] = matrix
 	}
 
-	encoded := encodeMatrixList(rows, columns, matrices, false)
-	decoded := decodeMatrixList(2, rows, columns, encoded, false)
+	encoded := encodeMatrices(rows, columns, matrices, false)
+	decoded := decodeMatrices(m, rows, columns, encoded, false)
 
 	if !reflect.DeepEqual(matrices, decoded) {
 		t.Error("Original and decoded is not the same", matrices, decoded)

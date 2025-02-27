@@ -2,8 +2,6 @@ package mayo
 
 import (
 	"bytes"
-	cryptoRand "crypto/rand"
-	"io"
 	"math"
 )
 
@@ -11,27 +9,31 @@ import (
 // return an error, if it fails to generate random bytes.
 func (mayo *Mayo) CompactKeyGen() ([]byte, []byte, error) {
 	seedSk := make([]byte, mayo.skSeedBytes)
-	rand := cryptoRand.Reader
+	/*rand := cryptoRand.Reader
 	_, err := io.ReadFull(rand, seedSk[:])
 	if err != nil {
 		return nil, nil, err
 	}
+
+	*/
 
 	s := shake256(mayo.pkSeedBytes+mayo.oBytes, seedSk)
 	seedPk := s[:mayo.pkSeedBytes]
 	O := decodeMatrix(mayo.n-mayo.o, mayo.o, s[mayo.pkSeedBytes:mayo.pkSeedBytes+mayo.oBytes])
 
 	P := aes128ctr(seedPk, mayo.p1Bytes+mayo.p2Bytes)
-	P1 := decodeMatrixList(mayo.m, mayo.v, mayo.v, P[:mayo.p1Bytes], true)
-	P2 := decodeMatrixList(mayo.m, mayo.v, mayo.o, P[mayo.p1Bytes:mayo.p1Bytes+mayo.p2Bytes], false)
+	P1 := decodeMatrices(mayo.m, mayo.v, mayo.v, P[:mayo.p1Bytes], true)
+	P2 := decodeMatrices(mayo.m, mayo.v, mayo.o, P[mayo.p1Bytes:mayo.p1Bytes+mayo.p2Bytes], false)
 	P3 := make([][][]byte, mayo.m)
 	for i := 0; i < mayo.m; i++ {
-		P3[i] = Upper(multiplyMatrices(transposeMatrix(O), addMatrices(multiplyMatrices(P1[i], O), P2[i])))
+		P3[i] = upper(multiplyMatrices(transposeMatrix(O), addMatrices(multiplyMatrices(P1[i], O), P2[i])))
 	}
 
-	var cpk []byte // TODO: is this a slow way of appended bytes? (General for entire file) https://stackoverflow.com/questions/38654729/golang-slice-append-vs-assign-performance
+	// TODO: is this a slow way of appended bytes? (General for entire file)
+	// https://stackoverflow.com/questions/38654729/golang-slice-append-vs-assign-performance
+	var cpk []byte
 	cpk = append(cpk, seedPk...)
-	cpk = append(cpk, encodeMatrixList(mayo.o, mayo.o, P3, true)...)
+	cpk = append(cpk, encodeMatrices(mayo.o, mayo.o, P3, true)...)
 	csk := seedSk
 
 	return cpk, csk, nil
@@ -50,8 +52,8 @@ func (mayo *Mayo) ExpandSK(csk []byte) []byte {
 
 	// Derive P1 and P2 from seedPk
 	P := aes128ctr(seedPk, mayo.p1Bytes+mayo.p2Bytes)
-	P1 := decodeMatrixList(mayo.m, mayo.v, mayo.v, P[:mayo.p1Bytes], true)
-	P2 := decodeMatrixList(mayo.m, mayo.v, mayo.o, P[mayo.p1Bytes:mayo.p1Bytes+mayo.p2Bytes], false)
+	P1 := decodeMatrices(mayo.m, mayo.v, mayo.v, P[:mayo.p1Bytes], true)
+	P2 := decodeMatrices(mayo.m, mayo.v, mayo.o, P[mayo.p1Bytes:mayo.p1Bytes+mayo.p2Bytes], false)
 
 	// Compute the L
 	L := make([][][]byte, mayo.m)
@@ -64,7 +66,7 @@ func (mayo *Mayo) ExpandSK(csk []byte) []byte {
 	esk = append(esk, seedSk...)
 	esk = append(esk, oByteString...)
 	esk = append(esk, P[:mayo.p1Bytes]...)
-	esk = append(esk, encodeMatrixList(mayo.v, mayo.o, L, false)...)
+	esk = append(esk, encodeMatrices(mayo.v, mayo.o, L, false)...)
 	return esk
 }
 
@@ -85,14 +87,14 @@ func (mayo *Mayo) Sign(esk, m []byte) []byte {
 	// Decode esk
 	seedSk := esk[:mayo.skSeedBytes]
 	O := decodeMatrix(mayo.v, mayo.o, esk[mayo.skSeedBytes:mayo.skSeedBytes+mayo.oBytes])
-	P1 := decodeMatrixList(mayo.m, mayo.v, mayo.v, esk[mayo.skSeedBytes+mayo.oBytes:mayo.skSeedBytes+mayo.oBytes+mayo.p1Bytes], true)
-	L := decodeMatrixList(mayo.m, mayo.v, mayo.o, esk[mayo.skSeedBytes+mayo.oBytes+mayo.p1Bytes:mayo.eskBytes], false)
+	P1 := decodeMatrices(mayo.m, mayo.v, mayo.v, esk[mayo.skSeedBytes+mayo.oBytes:mayo.skSeedBytes+mayo.oBytes+mayo.p1Bytes], true)
+	L := decodeMatrices(mayo.m, mayo.v, mayo.o, esk[mayo.skSeedBytes+mayo.oBytes+mayo.p1Bytes:mayo.eskBytes], false)
 
 	// Hash the message, and derive salt and t
 	mDigest := shake256(mayo.digestBytes, m)
 	R := make([]byte, mayo.rBytes) // TODO: add randomization
 	salt := shake256(mayo.saltBytes, mDigest, R, seedSk)
-	t := decodeVec(mayo.m, shake256(int(math.Ceil(float64(mayo.m)*math.Log2(float64(mayo.q))/8.0)), mDigest, salt))
+	t := decodeVec(mayo.m, shake256(int(math.Ceil(float64(mayo.m)*math.Log2(float64(mayo.q))/8.0)), mDigest, salt)) // TODO: refactor this length
 
 	// Attempt to find a preimage for t
 	var x []byte
@@ -108,8 +110,8 @@ func (mayo *Mayo) Sign(esk, m []byte) []byte {
 		r := decodeVec(mayo.k*mayo.o, V[mayo.k*mayo.vBytes:mayo.k*mayo.vBytes+int(math.Ceil(float64(mayo.k)*float64(mayo.o)*math.Log2(float64(mayo.q))/8))])
 
 		// Build linear system Ax = y
-		A := generateZeroMatrix(mayo.m+mayo.shifts, mayo.k*mayo.o) // TODO: Check
-		y := make([]byte, mayo.m+mayo.shifts)                      // TODO: Check, maybe introduce variable for max(ell)
+		A := generateZeroMatrix(mayo.m+mayo.shifts, mayo.k*mayo.o)
+		y := make([]byte, mayo.m+mayo.shifts)
 		copy(y[:mayo.m], t)
 		ell := 0
 		M := make([][][]byte, mayo.k)
@@ -197,9 +199,9 @@ func (mayo *Mayo) Verify(epk, m, sig []byte) int {
 	P1ByteString := epk[:mayo.p1Bytes]
 	P2ByteString := epk[mayo.p1Bytes : mayo.p1Bytes+mayo.p2Bytes]
 	P3ByteString := epk[mayo.p1Bytes+mayo.p2Bytes : mayo.p1Bytes+mayo.p2Bytes+mayo.p3Bytes]
-	P1 := decodeMatrixList(mayo.m, mayo.v, mayo.v, P1ByteString, true)
-	P2 := decodeMatrixList(mayo.m, mayo.v, mayo.o, P2ByteString, false)
-	P3 := decodeMatrixList(mayo.m, mayo.o, mayo.o, P3ByteString, true)
+	P1 := decodeMatrices(mayo.m, mayo.v, mayo.v, P1ByteString, true)
+	P2 := decodeMatrices(mayo.m, mayo.v, mayo.o, P2ByteString, false)
+	P3 := decodeMatrices(mayo.m, mayo.o, mayo.o, P3ByteString, true)
 
 	// Decode sig
 	nkHalf := int(math.Ceil(float64(mayo.n) * float64(mayo.k) / 2.0))
@@ -257,7 +259,7 @@ func (mayo *Mayo) Verify(epk, m, sig []byte) int {
 	return -1
 }
 
-func (mayo *Mayo) reduceVecModF(y []byte) []byte { // TODO: Refactor so ell is not needed
+func (mayo *Mayo) reduceVecModF(y []byte) []byte {
 	tailF := []byte{8, 0, 2, 8, 0}
 	for i := mayo.m + mayo.shifts - 1; i >= mayo.m; i-- {
 		for shift, coefficient := range tailF {
@@ -270,7 +272,7 @@ func (mayo *Mayo) reduceVecModF(y []byte) []byte { // TODO: Refactor so ell is n
 	return y
 }
 
-func (mayo *Mayo) reduceAModF(A [][]byte) [][]byte { // TODO: Refactor so ell is not needed
+func (mayo *Mayo) reduceAModF(A [][]byte) [][]byte {
 	tailF := []byte{8, 0, 2, 8, 0}
 	for row := mayo.m + mayo.shifts - 1; row >= mayo.m; row-- {
 		for column := 0; column < mayo.k*mayo.o; column++ {

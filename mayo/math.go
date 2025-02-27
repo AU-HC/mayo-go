@@ -237,7 +237,7 @@ func (mayo *Mayo) SampleSolution(A [][]byte, y []byte, R []byte) ([]byte, bool) 
 	// Back-substitution
 	for r := mayo.m - 1; r >= 0; r-- {
 		// Let c be the index of first non-zero element of A[r,:]
-		for c := 0; c < r; c++ {
+		for c := 0; c < len(A[r]); c++ {
 			if A[r][c] != 0 {
 				x[c] ^= y[r]
 
