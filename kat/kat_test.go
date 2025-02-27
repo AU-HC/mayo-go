@@ -7,7 +7,7 @@ import (
 )
 
 func TestKat1(t *testing.T) {
-	katDataList := parseKatData("PQCsignKAT_24_MAYO_1.rsp")
+	katDataList := parseKatData("kat_files/PQCsignKAT_24_MAYO_1.rsp")
 
 	for _, katDataaaa := range katDataList {
 		mayo, err := standard.InitMayo(1)

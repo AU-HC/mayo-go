@@ -2,6 +2,8 @@ package mayo
 
 import (
 	"bytes"
+	cryptoRand "crypto/rand"
+	"io"
 	"math"
 )
 
@@ -9,13 +11,11 @@ import (
 // return an error, if it fails to generate random bytes.
 func (mayo *Mayo) CompactKeyGen() ([]byte, []byte, error) {
 	seedSk := make([]byte, mayo.skSeedBytes)
-	/*rand := cryptoRand.Reader
+	rand := cryptoRand.Reader
 	_, err := io.ReadFull(rand, seedSk[:])
 	if err != nil {
 		return nil, nil, err
 	}
-
-	*/
 
 	s := shake256(mayo.pkSeedBytes+mayo.oBytes, seedSk)
 	seedPk := s[:mayo.pkSeedBytes]
