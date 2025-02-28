@@ -1,6 +1,7 @@
 ﻿package mayo
 
 import (
+	"bytes"
 	"fmt"
 	"runtime"
 	"testing"
@@ -17,18 +18,21 @@ func Test(t *testing.T) {
 	}
 
 	// Generate the public key and secret key
-	_, csk, err := mayo.CompactKeyGen()
+	cpk, csk, err := mayo.CompactKeyGen()
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
-	esk := mayo.ExpandSK(csk)
-	//epk := mayo.ExpandPK(cpk)
 
-	// Sign the message
-	sig := mayo.Sign(esk, message)
+	// Sign and open the signature
+	sig := mayo.APISign(message, csk)
+	result, signedMessage := mayo.APISignOpen(sig, cpk)
 
-	if sig == nil {
-		t.Error("Signature should not be nil")
+	if result != 0 {
+		t.Error("Result should be '0', was: ", result)
+	}
+
+	if !bytes.Equal(message, signedMessage) {
+		t.Error("Signed message is not equal to opened message", message, signedMessage)
 	}
 }
