@@ -36,7 +36,7 @@ func InitMayo(securityLevel int) (*Mayo, error) {
 		fmt.Sprintf("Wrong security level supplied: '%d'. Must be either '1', '2', '3', or '5'.", securityLevel))
 }
 
-func generateMulTable() ([][]byte, []byte) {
+func generateMulAndInvTable() ([][]byte, []byte) {
 	mulTable := make([][]byte, 16)
 	invTable := make([]byte, 16)
 
@@ -65,13 +65,13 @@ func initMayo(n, m, o, k, q, saltBytes, digestBytes, pkSeedBytes int) *Mayo {
 	vBytes := int(math.Ceil(float64(n-o) / 2.0))
 	p1Bytes := m * ((n - o) * ((n - o) + 1) / 2) / 2
 	p2Bytes := m * (n - o) * o / 2
-	p3Bytes := m * ((o + 1) * o / 2) / 2 // TODO: is this correct?
+	p3Bytes := m * ((o + 1) * o / 2) / 2 //
 	lBytes := m * (n - o) * o / 2
 	eskBytes := skSeedBytes + oBytes + p1Bytes + lBytes
 	cpkBytes := pkSeedBytes + p3Bytes
 	epkBytes := p1Bytes + p2Bytes + p3Bytes
 	sigBytes := int(math.Ceil(float64(n*k)/2.0)) + saltBytes
-	mulTable, invTable := generateMulTable() // TODO: Use these
+	mulTable, invTable := generateMulAndInvTable() // TODO: Use these
 
 	v := n - o
 	shifts := k * (k + 1) / 2
