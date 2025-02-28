@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	standard "mayo-go/mayo"
+	"time"
 )
 
 func main() {
@@ -21,14 +22,16 @@ func main() {
 		fmt.Println(err)
 		return
 	}
-	epk := mayo.ExpandPK(cpk)
-	esk := mayo.ExpandSK(csk)
 
 	// Sign the message
-	sig := mayo.Sign(esk, message)
+	before := time.Now()
+	sig := mayo.APISign(message, csk)
+	fmt.Println(fmt.Sprintf("Signing took: %dms", time.Since(before).Milliseconds()))
 
 	// Check if the signature is valid
-	valid := mayo.Verify(epk, message, sig)
+	before = time.Now()
+	valid, _ := mayo.APISignOpen(sig, cpk)
+	fmt.Println(fmt.Sprintf("Verification took: %dms", time.Since(before).Milliseconds()))
 	if valid == 0 {
 		fmt.Println(fmt.Sprintf("Sig: '%s' is a valid signature on the message: '%s'", hex.EncodeToString(sig), message))
 	} else {

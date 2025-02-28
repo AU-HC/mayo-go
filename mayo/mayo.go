@@ -7,41 +7,6 @@ import (
 	"math"
 )
 
-// APISign (Algorithm 9) Takes a secret sk and message, it then expands the SK and calls Sign with the expanded secret key
-// to produce the signature. It then outputs sig || M
-func (mayo *Mayo) APISign(M, sk []byte) []byte {
-	// Expand the SK
-	esk := mayo.ExpandSK(sk)
-
-	// Produce signature
-	sig := mayo.Sign(esk, M)
-
-	// Return signed message
-	result := make([]byte, mayo.sigBytes+len(M))
-	copy(result[:mayo.sigBytes], sig)
-	copy(result[mayo.sigBytes:], M)
-	return result
-}
-
-// APISignOpen (Algorithm 10) Takes a signed message sig || m as input and expands the public key, which then calls
-// Verify to check if the signature is valid. It returns the result and message if the signature is valid
-func (mayo *Mayo) APISignOpen(sm, pk []byte) (int, []byte) {
-	// Expand the PK
-	epk := mayo.ExpandPK(pk)
-
-	// Parse the signed message
-	sig, M := sm[:mayo.sigBytes], sm[mayo.sigBytes:]
-
-	// Verify the signature
-	result := mayo.Verify(epk, M, sig)
-
-	// Return result and message
-	if result < 0 {
-		return result, nil
-	}
-	return result, M
-}
-
 // CompactKeyGen (Algorithm 4) outputs compact representation of a secret key csk and public key cpk. Will instead
 // return an error, if it fails to generate random bytes.
 func (mayo *Mayo) CompactKeyGen() ([]byte, []byte, error) {
@@ -293,6 +258,41 @@ func (mayo *Mayo) Verify(epk, m, sig []byte) int {
 		return 0
 	}
 	return -1
+}
+
+// APISign (Algorithm 9) Takes a secret sk and message, it then expands the SK and calls Sign with the expanded secret key
+// to produce the signature. It then outputs sig || M
+func (mayo *Mayo) APISign(M, sk []byte) []byte {
+	// Expand the SK
+	esk := mayo.ExpandSK(sk)
+
+	// Produce signature
+	sig := mayo.Sign(esk, M)
+
+	// Return signed message
+	result := make([]byte, mayo.sigBytes+len(M))
+	copy(result[:mayo.sigBytes], sig)
+	copy(result[mayo.sigBytes:], M)
+	return result
+}
+
+// APISignOpen (Algorithm 10) Takes a signed message sig || m as input and expands the public key, which then calls
+// Verify to check if the signature is valid. It returns the result and message if the signature is valid
+func (mayo *Mayo) APISignOpen(sm, pk []byte) (int, []byte) {
+	// Expand the PK
+	epk := mayo.ExpandPK(pk)
+
+	// Parse the signed message
+	sig, M := sm[:mayo.sigBytes], sm[mayo.sigBytes:]
+
+	// Verify the signature
+	result := mayo.Verify(epk, M, sig)
+
+	// Return result and message
+	if result < 0 {
+		return result, nil
+	}
+	return result, M
 }
 
 func (mayo *Mayo) reduceVecModF(y []byte) []byte {
