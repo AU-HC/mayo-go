@@ -41,7 +41,6 @@ func extractVecFromMatrix(A [][]byte) ([][]byte, []byte) {
 }
 
 func multiplyMatrices(A, B [][]byte) [][]byte {
-	// TODO: remove this check
 	rowsA, colsA := len(A), len(A[0])
 	rowsB, colsB := len(B), len(B[0])
 
@@ -66,7 +65,6 @@ func addMatrices(A, B [][]byte) [][]byte {
 	rowsA, colsA := len(A), len(A[0])
 	rowsB, colsB := len(B), len(B[0])
 
-	// TODO: Remove this check
 	if rowsA != rowsB || colsA != colsB {
 		panic("Cannot add matrices")
 	}
@@ -147,26 +145,6 @@ func gf16Mul(a, b byte) byte {
 		r ^= (a << 3) ^ (a >> 1) ^ (a & 0xE)
 	}
 	return r & 0xF
-}
-
-func subMatrices(A, B [][]byte) [][]byte {
-	rowsA, colsA := len(A), len(A[0])
-	rowsB, colsB := len(B), len(B[0])
-
-	// TODO: Remove this check
-	if rowsA != rowsB || colsA != colsB {
-		panic(fmt.Sprintf("Cannot sub matrices (%d, %d), (%d, %d)", rowsA, rowsB, colsA, colsB))
-	}
-
-	C := make([][]byte, rowsA)
-	for i := range C {
-		C[i] = make([]byte, colsA)
-		for j := range C[i] {
-			C[i][j] = A[i][j] ^ B[i][j]
-		}
-	}
-
-	return C
 }
 
 func transposeMatrix(A [][]byte) [][]byte {
