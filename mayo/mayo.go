@@ -29,11 +29,10 @@ func (mayo *Mayo) CompactKeyGen() ([]byte, []byte, error) {
 		P3[i] = upper(multiplyMatrices(transposeMatrix(O), addMatrices(multiplyMatrices(P1[i], O), P2[i])))
 	}
 
-	// TODO: is this a slow way of appended bytes? (General for entire file)
-	// https://stackoverflow.com/questions/38654729/golang-slice-append-vs-assign-performance
-	var cpk []byte
-	cpk = append(cpk, seedPk...)
-	cpk = append(cpk, encodeMatrices(mayo.o, mayo.o, P3, true)...)
+	// Return the encoded cpk and csk
+	cpk := make([]byte, mayo.cpkBytes)
+	copy(cpk[:mayo.pkSeedBytes], seedPk)
+	copy(cpk[mayo.pkSeedBytes:], encodeMatrices(mayo.o, mayo.o, P3, true))
 	csk := seedSk
 
 	return cpk, csk, nil
@@ -52,7 +51,8 @@ func (mayo *Mayo) ExpandSK(csk []byte) []byte {
 
 	// Derive P1 and P2 from seedPk
 	P := aes128ctr(seedPk, mayo.p1Bytes+mayo.p2Bytes)
-	P1 := decodeMatrices(mayo.m, mayo.v, mayo.v, P[:mayo.p1Bytes], true)
+	p1Bytes := P[:mayo.p1Bytes]
+	P1 := decodeMatrices(mayo.m, mayo.v, mayo.v, p1Bytes, true)
 	P2 := decodeMatrices(mayo.m, mayo.v, mayo.o, P[mayo.p1Bytes:mayo.p1Bytes+mayo.p2Bytes], false)
 
 	// Compute the L
@@ -62,11 +62,11 @@ func (mayo *Mayo) ExpandSK(csk []byte) []byte {
 	}
 
 	// Encode L and output esk
-	var esk []byte
-	esk = append(esk, seedSk...)
-	esk = append(esk, oByteString...)
-	esk = append(esk, P[:mayo.p1Bytes]...)
-	esk = append(esk, encodeMatrices(mayo.v, mayo.o, L, false)...)
+	esk := make([]byte, mayo.eskBytes)
+	copy(esk[:mayo.skSeedBytes], seedSk)
+	copy(esk[mayo.skSeedBytes:], oByteString)
+	copy(esk[mayo.skSeedBytes+mayo.oBytes:], p1Bytes)
+	copy(esk[mayo.skSeedBytes+mayo.oBytes+mayo.p1Bytes:], encodeMatrices(mayo.v, mayo.o, L, false))
 	return esk
 }
 
@@ -76,9 +76,9 @@ func (mayo *Mayo) ExpandPK(cpk []byte) []byte {
 	seedPk := cpk[:mayo.pkSeedBytes]
 
 	// Expand seedPk and return epk
-	var epk []byte
-	epk = append(epk, aes128ctr(seedPk, mayo.p1Bytes+mayo.p2Bytes)...)
-	epk = append(epk, cpk[mayo.pkSeedBytes:mayo.pkSeedBytes+mayo.p3Bytes]...)
+	epk := make([]byte, mayo.epkBytes)
+	copy(epk[:mayo.p1Bytes+mayo.p2Bytes], aes128ctr(seedPk, mayo.p1Bytes+mayo.p2Bytes))
+	copy(epk[mayo.p1Bytes+mayo.p2Bytes:], cpk[mayo.pkSeedBytes:mayo.pkSeedBytes+mayo.p3Bytes])
 	return epk
 }
 
@@ -183,6 +183,7 @@ func (mayo *Mayo) Sign(esk, m []byte) []byte {
 	for i := 0; i < mayo.k; i++ {
 		xIndexed := x[i*mayo.o : (i+1)*mayo.o]
 		OX := transposeMatrix(addMatrices(vecToMatrix(v[i]), multiplyMatrices(O, vecToMatrix(xIndexed))))[0]
+
 		s = append(s, OX...)
 		s = append(s, xIndexed...)
 	}
