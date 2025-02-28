@@ -69,13 +69,9 @@ func addMatrices(A, B [][]byte) [][]byte {
 		panic("Cannot add matrices")
 	}
 
-	// TODO: Use add vec here
 	C := make([][]byte, rowsA)
 	for i := range C {
-		C[i] = make([]byte, colsA)
-		for j := range C[i] {
-			C[i][j] = A[i][j] ^ B[i][j]
-		}
+		C[i] = addVectors(A[i], B[i])
 	}
 
 	return C

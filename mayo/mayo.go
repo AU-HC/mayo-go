@@ -2,21 +2,14 @@ package mayo
 
 import (
 	"bytes"
-	cryptoRand "crypto/rand"
-	"io"
 	"math"
 )
 
 // CompactKeyGen (Algorithm 4) outputs compact representation of a secret key csk and public key cpk. Will instead
 // return an error, if it fails to generate random bytes.
 func (mayo *Mayo) CompactKeyGen() ([]byte, []byte, error) {
-	seedSk := make([]byte, mayo.skSeedBytes)
-	rand := cryptoRand.Reader
-	_, err := io.ReadFull(rand, seedSk[:])
-	if err != nil {
-		return nil, nil, err
-	}
-
+	// TODO: Add comments from spec
+	seedSk := sampleRandomBytes(mayo.skSeedBytes)
 	s := shake256(mayo.pkSeedBytes+mayo.oBytes, seedSk)
 	seedPk := s[:mayo.pkSeedBytes]
 	O := decodeMatrix(mayo.n-mayo.o, mayo.o, s[mayo.pkSeedBytes:mayo.pkSeedBytes+mayo.oBytes])
@@ -92,9 +85,9 @@ func (mayo *Mayo) Sign(esk, m []byte) []byte {
 
 	// Hash the message, and derive salt and t
 	mDigest := shake256(mayo.digestBytes, m)
-	R := make([]byte, mayo.rBytes) // TODO: add randomization
+	R := sampleRandomBytes(mayo.rBytes)
 	salt := shake256(mayo.saltBytes, mDigest, R, seedSk)
-	t := decodeVec(mayo.m, shake256(int(math.Ceil(float64(mayo.m)*math.Log2(float64(mayo.q))/8.0)), mDigest, salt)) // TODO: refactor this length
+	t := decodeVec(mayo.m, shake256(mayo.intTimesLogQ(mayo.m), mDigest, salt))
 
 	// Attempt to find a preimage for t
 	var x []byte
@@ -102,12 +95,11 @@ func (mayo *Mayo) Sign(esk, m []byte) []byte {
 	v := make([][]byte, mayo.k)
 	for ctr := 0; ctr < 256; ctr++ {
 		// Derive v_i and r
-		V := shake256(mayo.k*mayo.vBytes+int(math.Ceil(float64(mayo.k)*float64(mayo.o)*math.Log2(float64(mayo.q))/8)),
-			mDigest, salt, seedSk, []byte{byte(ctr)})
+		V := shake256(mayo.k*mayo.vBytes+mayo.intTimesLogQ(mayo.k, mayo.o), mDigest, salt, seedSk, []byte{byte(ctr)})
 		for i := 0; i < mayo.k; i++ {
 			v[i] = decodeVec(mayo.n-mayo.o, V[i*mayo.vBytes:(i+1)*mayo.vBytes])
 		}
-		r := decodeVec(mayo.k*mayo.o, V[mayo.k*mayo.vBytes:mayo.k*mayo.vBytes+int(math.Ceil(float64(mayo.k)*float64(mayo.o)*math.Log2(float64(mayo.q))/8))])
+		r := decodeVec(mayo.k*mayo.o, V[mayo.k*mayo.vBytes:mayo.k*mayo.vBytes+mayo.intTimesLogQ(mayo.k, mayo.o)])
 
 		// Build linear system Ax = y
 		A := generateZeroMatrix(mayo.m+mayo.shifts, mayo.k*mayo.o)
@@ -293,6 +285,15 @@ func (mayo *Mayo) APISignOpen(sm, pk []byte) (int, []byte) {
 		return result, nil
 	}
 	return result, M
+}
+
+func (mayo *Mayo) intTimesLogQ(ints ...int) int {
+	product := 1
+	for _, number := range ints {
+		product *= number
+	}
+
+	return int(math.Ceil(float64(product) * math.Log2(float64(mayo.q)) / 8.0))
 }
 
 func (mayo *Mayo) reduceVecModF(y []byte) []byte {

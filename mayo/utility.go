@@ -6,7 +6,6 @@ import (
 	"crypto/sha3"
 )
 
-// TODO: also return error here
 func aes128ctr(seed []byte, l int) []byte {
 	var nonce [16]byte
 	block, _ := aes.NewCipher(seed[:])
@@ -16,7 +15,6 @@ func aes128ctr(seed []byte, l int) []byte {
 	return dst
 }
 
-// TODO: also return error here
 func shake256(outputLength int, inputs ...[]byte) []byte {
 	output := make([]byte, outputLength)
 
