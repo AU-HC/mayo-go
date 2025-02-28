@@ -8,26 +8,32 @@ import (
 // CompactKeyGen (Algorithm 4) outputs compact representation of a secret key csk and public key cpk. Will instead
 // return an error, if it fails to generate random bytes.
 func (mayo *Mayo) CompactKeyGen() ([]byte, []byte, error) {
-	// TODO: Add comments from spec
+	// Pick seekSk at random
 	seedSk := sampleRandomBytes(mayo.skSeedBytes)
+
+	// Derive seedPk and O from seekSk
 	s := shake256(mayo.pkSeedBytes+mayo.oBytes, seedSk)
 	seedPk := s[:mayo.pkSeedBytes]
 	O := decodeMatrix(mayo.n-mayo.o, mayo.o, s[mayo.pkSeedBytes:mayo.pkSeedBytes+mayo.oBytes])
 
+	// Derive P_i^1 and P_i^2 from seekPk
 	P := aes128ctr(seedPk, mayo.p1Bytes+mayo.p2Bytes)
 	P1 := decodeMatrices(mayo.m, mayo.v, mayo.v, P[:mayo.p1Bytes], true)
 	P2 := decodeMatrices(mayo.m, mayo.v, mayo.o, P[mayo.p1Bytes:mayo.p1Bytes+mayo.p2Bytes], false)
+
+	// Compute the P_i^3
 	P3 := make([][][]byte, mayo.m)
 	for i := 0; i < mayo.m; i++ {
 		P3[i] = upper(multiplyMatrices(transposeMatrix(O), addMatrices(multiplyMatrices(P1[i], O), P2[i])))
 	}
 
-	// Return the encoded cpk and csk
+	// Encode the P_i^3
 	cpk := make([]byte, mayo.cpkBytes)
 	copy(cpk[:mayo.pkSeedBytes], seedPk)
 	copy(cpk[mayo.pkSeedBytes:], encodeMatrices(mayo.o, mayo.o, P3, true))
 	csk := seedSk
 
+	// Output keys
 	return cpk, csk, nil
 }
 
