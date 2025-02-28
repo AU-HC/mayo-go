@@ -1,15 +1,15 @@
 package mayo
 
 // encodeVec encodes a byte slice into a byte slice of half the length
-func encodeVec(byteString []byte) []byte {
-	encoded := make([]byte, (len(byteString)+1)/2)
+func encodeVec(bytes []byte) []byte {
+	encoded := make([]byte, (len(bytes)+1)/2)
 
-	for i := 0; i < len(byteString)-1; i += 2 {
-		encoded[i/2] = (byteString[i] & 0xf) | (byteString[i+1] << 4)
+	for i := 0; i < len(bytes)-1; i += 2 {
+		encoded[i/2] = bytes[i+1]<<4 | bytes[i]&0xf
 	}
 
-	if (len(byteString) % 2) == 1 {
-		encoded[(len(byteString)-1)/2] = byteString[len(byteString)-1]
+	if (len(bytes) % 2) == 1 {
+		encoded[(len(bytes)-1)/2] = bytes[len(bytes)-1]
 	}
 
 	return encoded
