@@ -304,9 +304,8 @@ func (mayo *Mayo) intTimesLogQ(ints ...int) int {
 }
 
 func (mayo *Mayo) reduceVecModF(y []byte) []byte {
-	tailF := []byte{8, 0, 2, 8, 0}
 	for i := mayo.m + mayo.shifts - 1; i >= mayo.m; i-- {
-		for shift, coefficient := range tailF {
+		for shift, coefficient := range mayo.tailF {
 			y[i-mayo.m+shift] ^= gf16Mul(y[i], coefficient)
 		}
 		y[i] = 0
@@ -317,11 +316,10 @@ func (mayo *Mayo) reduceVecModF(y []byte) []byte {
 }
 
 func (mayo *Mayo) reduceAModF(A [][]byte) [][]byte {
-	tailF := []byte{8, 0, 2, 8, 0}
 	for row := mayo.m + mayo.shifts - 1; row >= mayo.m; row-- {
 		for column := 0; column < mayo.k*mayo.o; column++ {
-			for shift := 0; shift < len(tailF); shift++ {
-				A[row-mayo.m+shift][column] ^= gf16Mul(A[row][column], tailF[shift])
+			for shift := 0; shift < len(mayo.tailF); shift++ {
+				A[row-mayo.m+shift][column] ^= gf16Mul(A[row][column], mayo.tailF[shift])
 			}
 			A[row][column] = 0
 		}

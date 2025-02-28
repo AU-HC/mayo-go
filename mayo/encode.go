@@ -9,7 +9,7 @@ func encodeVec(bytes []byte) []byte {
 	}
 
 	if (len(bytes) % 2) == 1 {
-		encoded[(len(bytes)-1)/2] = bytes[len(bytes)-1]
+		encoded[(len(bytes)-1)/2] = bytes[len(bytes)-1] << 4
 	}
 
 	return encoded
