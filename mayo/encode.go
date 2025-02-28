@@ -1,7 +1,5 @@
 package mayo
 
-import "fmt"
-
 // encodeVec encodes a byte slice into a byte slice of half the length
 func encodeVec(byteString []byte) []byte {
 	encoded := make([]byte, (len(byteString)+1)/2)
@@ -36,19 +34,6 @@ func decodeVec(n int, byteString []byte) []byte {
 	}
 
 	return decoded
-}
-
-// encodeMatrix encodes a matrix of byte slices into a single byte slice
-func encodeMatrix(byteString [][]byte) []byte {
-	var encoded []byte
-
-	for _, row := range byteString {
-		encodedRow := encodeVec(row)
-		// TODO: Consider allocating before
-		encoded = append(encoded, encodedRow...)
-	}
-
-	return encoded
 }
 
 // decodeMatrix decodes a byte slice into a matrix of byte slices
@@ -146,23 +131,4 @@ func transposeVector(vec []byte) [][]byte {
 	matrix := make([][]byte, 1)
 	matrix[0] = vec
 	return matrix
-}
-
-func printMatrix(matrix [][][]byte) {
-	for _, row := range matrix[0] {
-		for _, elem := range row {
-			fmt.Printf("%2d ", elem)
-		}
-		fmt.Println()
-	}
-}
-
-func printSingleMatrix(matrix [][]byte) {
-	for _, row := range matrix {
-		for _, elem := range row {
-			fmt.Printf("%2d ", elem)
-		}
-		fmt.Println()
-	}
-	fmt.Println("===============")
 }
