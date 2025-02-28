@@ -10,13 +10,23 @@ import (
 // APISign (Algorithm 9) Takes a secret sk and message, it then expands the SK and calls Sign with the expanded secret key
 // to produce the signature. It then outputs sig || M
 func (mayo *Mayo) APISign(M, sk []byte) []byte {
+	// Expand the SK
+	esk := mayo.ExpandSK(sk)
 
+	// Produce signature
+	sig := mayo.Sign(esk, M)
+
+	// Return signed message
+	result := make([]byte, mayo.sigBytes+len(M))
+	copy(result[:mayo.sigBytes], sig)
+	copy(result[mayo.sigBytes:], M)
+	return result
 }
 
 // APISignOpen (Algorithm 10) Takes a signed message sig || m as input and expands the public key, which then calls
 // Verify to check if the signature is valid. It returns the result and message if the signature is valid
 func (mayo *Mayo) APISignOpen(sm, pk []byte) (int, []byte) {
-	// Expand the pk
+	// Expand the PK
 	epk := mayo.ExpandPK(pk)
 
 	// Parse the signed message
