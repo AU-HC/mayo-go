@@ -3,13 +3,14 @@ package mayo
 import (
 	"bytes"
 	"math"
+	"mayo-go/rand"
 )
 
 // CompactKeyGen (Algorithm 4) outputs compact representation of a secret key csk and public key cpk. Will instead
 // return an error, if it fails to generate random bytes.
 func (mayo *Mayo) CompactKeyGen() ([]byte, []byte, error) {
 	// Pick seekSk at random
-	seedSk := sampleRandomBytes(mayo.skSeedBytes)
+	seedSk := rand.SampleRandomBytes(mayo.skSeedBytes)
 
 	// Derive seedPk and O from seekSk
 	s := shake256(mayo.pkSeedBytes+mayo.oBytes, seedSk)
@@ -91,7 +92,7 @@ func (mayo *Mayo) Sign(esk, m []byte) []byte {
 
 	// Hash the message, and derive salt and t
 	mDigest := shake256(mayo.digestBytes, m)
-	R := sampleRandomBytes(mayo.rBytes)
+	R := rand.SampleRandomBytes(mayo.rBytes)
 	salt := shake256(mayo.saltBytes, mDigest, R, seedSk)
 	t := decodeVec(mayo.m, shake256(mayo.intTimesLogQ(mayo.m), mDigest, salt))
 
