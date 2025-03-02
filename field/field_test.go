@@ -1,7 +1,8 @@
-package mayo
+package field
 
 import (
 	"bytes"
+	"mayo-go/mayo"
 	"reflect"
 	"testing"
 )
@@ -20,7 +21,7 @@ func TestMatrixMultiplication(t *testing.T) {
 		{43, 50},
 	}
 
-	result := multiplyMatrices(A, B)
+	result := MultiplyMatrices(A, B)
 
 	if !reflect.DeepEqual(result, expected) {
 		t.Error("Multiplication failed")
@@ -97,7 +98,7 @@ func TestTransposeMatrixForVectorizedMatrix(t *testing.T) {
 		{6},
 	}
 
-	result := transposeMatrix(vecToMatrix(A))
+	result := transposeMatrix(mayo.vecToMatrix(A))
 
 	if !reflect.DeepEqual(result, expected) {
 		t.Error("Addition failed")
