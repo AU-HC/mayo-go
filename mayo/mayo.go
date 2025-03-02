@@ -3,7 +3,9 @@ package mayo
 import (
 	"bytes"
 	"math"
+	"mayo-go/field"
 	"mayo-go/rand"
+	"slices"
 )
 
 // CompactKeyGen (Algorithm 4) outputs compact representation of a secret key csk and public key cpk. Will instead
@@ -13,19 +15,19 @@ func (mayo *Mayo) CompactKeyGen() ([]byte, []byte, error) {
 	seedSk := rand.SampleRandomBytes(mayo.skSeedBytes)
 
 	// Derive seedPk and O from seekSk
-	s := shake256(mayo.pkSeedBytes+mayo.oBytes, seedSk)
+	s := rand.Shake256(mayo.pkSeedBytes+mayo.oBytes, seedSk)
 	seedPk := s[:mayo.pkSeedBytes]
 	O := decodeMatrix(mayo.n-mayo.o, mayo.o, s[mayo.pkSeedBytes:mayo.pkSeedBytes+mayo.oBytes])
 
 	// Derive P_i^1 and P_i^2 from seekPk
-	P := aes128ctr(seedPk, mayo.p1Bytes+mayo.p2Bytes)
+	P := rand.Aes128ctr(seedPk, mayo.p1Bytes+mayo.p2Bytes)
 	P1 := decodeMatrices(mayo.m, mayo.v, mayo.v, P[:mayo.p1Bytes], true)
 	P2 := decodeMatrices(mayo.m, mayo.v, mayo.o, P[mayo.p1Bytes:mayo.p1Bytes+mayo.p2Bytes], false)
 
 	// Compute the P_i^3
 	P3 := make([][][]byte, mayo.m)
 	for i := 0; i < mayo.m; i++ {
-		P3[i] = upper(multiplyMatrices(transposeMatrix(O), addMatrices(multiplyMatrices(P1[i], O), P2[i])))
+		P3[i] = upper(mayo.field.MultiplyMatrices(transposeMatrix(O), field.AddMatrices(mayo.field.MultiplyMatrices(P1[i], O), P2[i])))
 	}
 
 	// Encode the P_i^3
@@ -44,13 +46,13 @@ func (mayo *Mayo) ExpandSK(csk []byte) []byte {
 	seedSk := csk[:mayo.skSeedBytes]
 
 	// Derive seedPk and O from seedSk
-	S := shake256(mayo.pkSeedBytes+mayo.oBytes, seedSk)
+	S := rand.Shake256(mayo.pkSeedBytes+mayo.oBytes, seedSk)
 	seedPk := S[:mayo.pkSeedBytes]
 	oByteString := S[mayo.pkSeedBytes : mayo.pkSeedBytes+mayo.oBytes]
 	O := decodeMatrix(mayo.n-mayo.o, mayo.o, oByteString)
 
 	// Derive P1 and P2 from seedPk
-	P := aes128ctr(seedPk, mayo.p1Bytes+mayo.p2Bytes)
+	P := rand.Aes128ctr(seedPk, mayo.p1Bytes+mayo.p2Bytes)
 	p1Bytes := P[:mayo.p1Bytes]
 	P1 := decodeMatrices(mayo.m, mayo.v, mayo.v, p1Bytes, true)
 	P2 := decodeMatrices(mayo.m, mayo.v, mayo.o, P[mayo.p1Bytes:mayo.p1Bytes+mayo.p2Bytes], false)
@@ -58,7 +60,7 @@ func (mayo *Mayo) ExpandSK(csk []byte) []byte {
 	// Compute the L
 	L := make([][][]byte, mayo.m)
 	for i := 0; i < mayo.m; i++ {
-		L[i] = addMatrices(multiplyMatrices(addMatrices(P1[i], transposeMatrix(P1[i])), O), P2[i])
+		L[i] = field.AddMatrices(mayo.field.MultiplyMatrices(field.AddMatrices(P1[i], transposeMatrix(P1[i])), O), P2[i])
 	}
 
 	// Encode L and output esk
@@ -77,7 +79,7 @@ func (mayo *Mayo) ExpandPK(cpk []byte) []byte {
 
 	// Expand seedPk and return epk
 	epk := make([]byte, mayo.epkBytes)
-	copy(epk[:mayo.p1Bytes+mayo.p2Bytes], aes128ctr(seedPk, mayo.p1Bytes+mayo.p2Bytes))
+	copy(epk[:mayo.p1Bytes+mayo.p2Bytes], rand.Aes128ctr(seedPk, mayo.p1Bytes+mayo.p2Bytes))
 	copy(epk[mayo.p1Bytes+mayo.p2Bytes:], cpk[mayo.pkSeedBytes:mayo.pkSeedBytes+mayo.p3Bytes])
 	return epk
 }
@@ -91,10 +93,10 @@ func (mayo *Mayo) Sign(esk, m []byte) []byte {
 	L := decodeMatrices(mayo.m, mayo.v, mayo.o, esk[mayo.skSeedBytes+mayo.oBytes+mayo.p1Bytes:mayo.eskBytes], false)
 
 	// Hash the message, and derive salt and t
-	mDigest := shake256(mayo.digestBytes, m)
+	mDigest := rand.Shake256(mayo.digestBytes, m)
 	R := rand.SampleRandomBytes(mayo.rBytes)
-	salt := shake256(mayo.saltBytes, mDigest, R, seedSk)
-	t := decodeVec(mayo.m, shake256(mayo.intTimesLogQ(mayo.m), mDigest, salt))
+	salt := rand.Shake256(mayo.saltBytes, mDigest, R, seedSk)
+	t := decodeVec(mayo.m, rand.Shake256(mayo.intTimesLogQ(mayo.m), mDigest, salt))
 
 	// Attempt to find a preimage for t
 	var x []byte
@@ -102,7 +104,7 @@ func (mayo *Mayo) Sign(esk, m []byte) []byte {
 	v := make([][]byte, mayo.k)
 	for ctr := 0; ctr < 256; ctr++ {
 		// Derive v_i and r
-		V := shake256(mayo.k*mayo.vBytes+mayo.intTimesLogQ(mayo.k, mayo.o), mDigest, salt, seedSk, []byte{byte(ctr)})
+		V := rand.Shake256(mayo.k*mayo.vBytes+mayo.intTimesLogQ(mayo.k, mayo.o), mDigest, salt, seedSk, []byte{byte(ctr)})
 		for i := 0; i < mayo.k; i++ {
 			v[i] = decodeVec(mayo.n-mayo.o, V[i*mayo.vBytes:(i+1)*mayo.vBytes])
 		}
@@ -118,7 +120,7 @@ func (mayo *Mayo) Sign(esk, m []byte) []byte {
 			mi := generateZeroMatrix(mayo.m, mayo.o)
 
 			for j := 0; j < mayo.m; j++ {
-				mi[j] = multiplyMatrices(transposeVector(v[i]), L[j])[0]
+				mi[j] = mayo.field.MultiplyMatrices(transposeVector(v[i]), L[j])[0]
 			}
 
 			M[i] = mi
@@ -130,15 +132,15 @@ func (mayo *Mayo) Sign(esk, m []byte) []byte {
 				if i == j {
 					for a := 0; a < mayo.m; a++ {
 						vMatrix := vecToMatrix(v[i])
-						u[a] = multiplyMatrices(multiplyMatrices(transposeVector(v[i]), P1[a]), vMatrix)[0][0]
+						u[a] = mayo.field.MultiplyMatrices(mayo.field.MultiplyMatrices(transposeVector(v[i]), P1[a]), vMatrix)[0][0]
 					}
 				} else {
 					for a := 0; a < mayo.m; a++ {
 						viMatrix := vecToMatrix(v[i])
 						vjMatrix := vecToMatrix(v[j])
-						u[a] = addMatrices(
-							multiplyMatrices(multiplyMatrices(transposeVector(v[i]), P1[a]), vjMatrix),
-							multiplyMatrices(multiplyMatrices(transposeVector(v[j]), P1[a]), viMatrix),
+						u[a] = field.AddMatrices(
+							mayo.field.MultiplyMatrices(mayo.field.MultiplyMatrices(transposeVector(v[i]), P1[a]), vjMatrix),
+							mayo.field.MultiplyMatrices(mayo.field.MultiplyMatrices(transposeVector(v[j]), P1[a]), viMatrix),
 						)[0][0]
 					}
 				}
@@ -171,7 +173,7 @@ func (mayo *Mayo) Sign(esk, m []byte) []byte {
 		A = mayo.reduceAModF(A)
 
 		// Try to solve the system
-		x, hasSolution = mayo.SampleSolution(A, y, r)
+		x, hasSolution = mayo.sampleSolution(A, y, r)
 		if hasSolution {
 			break
 		}
@@ -181,7 +183,7 @@ func (mayo *Mayo) Sign(esk, m []byte) []byte {
 	var s []byte
 	for i := 0; i < mayo.k; i++ {
 		xIndexed := x[i*mayo.o : (i+1)*mayo.o]
-		OX := transposeMatrix(addMatrices(vecToMatrix(v[i]), multiplyMatrices(O, vecToMatrix(xIndexed))))[0]
+		OX := transposeMatrix(field.AddMatrices(vecToMatrix(v[i]), mayo.field.MultiplyMatrices(O, vecToMatrix(xIndexed))))[0]
 
 		s = append(s, OX...)
 		s = append(s, xIndexed...)
@@ -214,8 +216,8 @@ func (mayo *Mayo) Verify(epk, m, sig []byte) int {
 	}
 
 	// Hash the message and derive t
-	mDigest := shake256(mayo.digestBytes, m)
-	t := decodeVec(mayo.m, shake256(int(math.Ceil(float64(mayo.m)*math.Log2(float64(mayo.q))/8)), mDigest, salt))
+	mDigest := rand.Shake256(mayo.digestBytes, m)
+	t := decodeVec(mayo.m, rand.Shake256(int(math.Ceil(float64(mayo.m)*math.Log2(float64(mayo.q))/8)), mDigest, salt))
 
 	// Compute P^*(s)
 	P := mayo.calculateP(P1, P2, P3)
@@ -227,15 +229,15 @@ func (mayo *Mayo) Verify(epk, m, sig []byte) int {
 			if i == j {
 				for a := 0; a < mayo.m; a++ {
 					siMatrix := vecToMatrix(sVector[i])
-					u[a] = multiplyMatrices(multiplyMatrices(transposeVector(sVector[i]), P[a]), siMatrix)[0][0]
+					u[a] = mayo.field.MultiplyMatrices(mayo.field.MultiplyMatrices(transposeVector(sVector[i]), P[a]), siMatrix)[0][0]
 				}
 			} else {
 				for a := 0; a < mayo.m; a++ {
 					siMatrix := vecToMatrix(sVector[i])
 					sjMatrix := vecToMatrix(sVector[j])
-					u[a] = addMatrices(
-						multiplyMatrices(multiplyMatrices(transposeVector(sVector[i]), P[a]), sjMatrix),
-						multiplyMatrices(multiplyMatrices(transposeVector(sVector[j]), P[a]), siMatrix),
+					u[a] = field.AddMatrices(
+						mayo.field.MultiplyMatrices(mayo.field.MultiplyMatrices(transposeVector(sVector[i]), P[a]), sjMatrix),
+						mayo.field.MultiplyMatrices(mayo.field.MultiplyMatrices(transposeVector(sVector[j]), P[a]), siMatrix),
 					)[0][0]
 				}
 			}
@@ -306,7 +308,7 @@ func (mayo *Mayo) intTimesLogQ(ints ...int) int {
 func (mayo *Mayo) reduceVecModF(y []byte) []byte {
 	for i := mayo.m + mayo.shifts - 1; i >= mayo.m; i-- {
 		for shift, coefficient := range mayo.tailF {
-			y[i-mayo.m+shift] ^= gf16Mul(y[i], coefficient)
+			y[i-mayo.m+shift] ^= mayo.field.Gf16Mul(y[i], coefficient)
 		}
 		y[i] = 0
 	}
@@ -319,7 +321,7 @@ func (mayo *Mayo) reduceAModF(A [][]byte) [][]byte {
 	for row := mayo.m + mayo.shifts - 1; row >= mayo.m; row-- {
 		for column := 0; column < mayo.k*mayo.o; column++ {
 			for shift := 0; shift < len(mayo.tailF); shift++ {
-				A[row-mayo.m+shift][column] ^= gf16Mul(A[row][column], mayo.tailF[shift])
+				A[row-mayo.m+shift][column] ^= mayo.field.Gf16Mul(A[row][column], mayo.tailF[shift])
 			}
 			A[row][column] = 0
 		}
@@ -360,4 +362,76 @@ func (mayo *Mayo) calculateP(P1, P2, P3 [][][]byte) [][][]byte {
 	}
 
 	return P
+}
+
+func (mayo *Mayo) echelonForm(B [][]byte) [][]byte {
+	pivotColumn := 0
+	pivotRow := 0
+
+	for pivotRow < mayo.m && pivotColumn < mayo.o*mayo.k+1 {
+		var possiblePivots []int
+		for i := pivotRow; i < mayo.m; i++ {
+			if B[i][pivotColumn] != 0 {
+				possiblePivots = append(possiblePivots, i)
+			}
+		}
+
+		if len(possiblePivots) == 0 {
+			pivotColumn++
+			continue
+		}
+
+		nextPivotRow := slices.Min(possiblePivots)
+		B[pivotRow], B[nextPivotRow] = B[nextPivotRow], B[pivotRow]
+
+		// Make the leading entry a 1
+		B[pivotRow] = mayo.field.MultiplyVecConstant(mayo.field.Gf16Inv(B[pivotRow][pivotColumn]), B[pivotRow])
+
+		// Eliminate entries below the pivot
+		for row := nextPivotRow + 1; row < mayo.m; row++ {
+			B[row] = field.SubVec(B[row], mayo.field.MultiplyVecConstant(B[row][pivotColumn], B[pivotRow]))
+		}
+
+		pivotRow++
+		pivotColumn++
+	}
+
+	return B
+}
+
+func (mayo *Mayo) sampleSolution(A [][]byte, y []byte, R []byte) ([]byte, bool) {
+	// Randomize the system using r
+	x := make([]byte, len(R))
+	copy(x, R)
+
+	yMatrix := field.SubVec(y, transposeMatrix(mayo.field.MultiplyMatrices(A, vecToMatrix(R)))[0])
+
+	// Put (A y) in echelon form with leading 1's
+	AyMatrix := appendVecToMatrix(A, yMatrix)
+	AyMatrix = mayo.echelonForm(AyMatrix)
+	A, y = extractVecFromMatrix(AyMatrix)
+
+	// Check if A has rank m
+	zeroVector := make([]byte, mayo.k*mayo.o)
+	if bytes.Equal(A[mayo.m-1], zeroVector) {
+		return nil, false
+	}
+
+	// Back-substitution
+	for r := mayo.m - 1; r >= 0; r-- {
+		// Let c be the index of first non-zero element of A[r,:]
+		for c := 0; c < len(A[r]); c++ {
+			if A[r][c] != 0 {
+				x[c] ^= y[r]
+
+				for i := 0; i < mayo.m; i++ {
+					y[i] ^= mayo.field.Gf16Mul(y[r], A[i][c])
+				}
+
+				break
+			}
+		}
+	}
+
+	return x, true
 }
