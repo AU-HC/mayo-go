@@ -82,8 +82,8 @@ func ParameterSet(securityLevel, n int) {
 	if err != nil {
 		panic(err)
 	}
-	err = os.WriteFile(fmt.Sprintf("%s/paramset-%d-%s", // TODO: Add timestamp?
-		directory, securityLevel, fileName), resultsJson, 0644)
+	err = os.WriteFile(fmt.Sprintf("%s/paramset-%d-%s-%s",
+		directory, securityLevel, time.Now().Format("2006-01-02-15-04-05"), fileName), resultsJson, 0644)
 	if err != nil {
 		panic(err)
 	}

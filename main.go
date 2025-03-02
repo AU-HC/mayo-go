@@ -14,7 +14,7 @@ func main() {
 		fmt.Println(err)
 		return
 	}
-	benchmark.ParameterSet(2, 50)
+	benchmark.ParameterSet(2, 5)
 
 	/*
 		// Generate the public key and secret key
