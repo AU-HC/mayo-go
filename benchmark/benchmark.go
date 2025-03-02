@@ -39,7 +39,7 @@ func ParameterSet(securityLevel, n int) {
 		expandSKResults[i] = duration.Nanoseconds()
 	}
 
-	// Benchmark ExpandPK
+	// Benchmark ExpandPK TODO: Fix this
 	expandPKResults := make([]int64, n)
 	for i := 0; i < n; i++ {
 		before := time.Now()
@@ -82,7 +82,7 @@ func ParameterSet(securityLevel, n int) {
 	if err != nil {
 		panic(err)
 	}
-	err = os.WriteFile(fmt.Sprintf("%s/paramset-%d-%s",
+	err = os.WriteFile(fmt.Sprintf("%s/paramset-%d-%s", // TODO: Add timestamp?
 		directory, securityLevel, fileName), resultsJson, 0644)
 	if err != nil {
 		panic(err)
