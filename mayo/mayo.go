@@ -27,7 +27,7 @@ func (mayo *Mayo) CompactKeyGen() ([]byte, []byte, error) {
 	// Compute the P_i^3
 	P3 := make([][][]byte, mayo.m)
 	for i := 0; i < mayo.m; i++ {
-		P3[i] = upper(mayo.field.MultiplyMatrices(field.TransposeMatrix(O), field.AddMatrices(mayo.field.MultiplyMatrices(P1[i], O), P2[i])))
+		P3[i] = upper(mayo.field.MultiplyMatrices(transposeMatrix(O), field.AddMatrices(mayo.field.MultiplyMatrices(P1[i], O), P2[i])))
 	}
 
 	// Encode the P_i^3
@@ -60,7 +60,7 @@ func (mayo *Mayo) ExpandSK(csk []byte) []byte {
 	// Compute the L
 	L := make([][][]byte, mayo.m)
 	for i := 0; i < mayo.m; i++ {
-		L[i] = field.AddMatrices(mayo.field.MultiplyMatrices(field.AddMatrices(P1[i], field.TransposeMatrix(P1[i])), O), P2[i])
+		L[i] = field.AddMatrices(mayo.field.MultiplyMatrices(field.AddMatrices(P1[i], transposeMatrix(P1[i])), O), P2[i])
 	}
 
 	// Encode L and output esk
@@ -183,7 +183,7 @@ func (mayo *Mayo) Sign(esk, m []byte) []byte {
 	var s []byte
 	for i := 0; i < mayo.k; i++ {
 		xIndexed := x[i*mayo.o : (i+1)*mayo.o]
-		OX := field.TransposeMatrix(field.AddMatrices(vecToMatrix(v[i]), mayo.field.MultiplyMatrices(O, vecToMatrix(xIndexed))))[0]
+		OX := transposeMatrix(field.AddMatrices(vecToMatrix(v[i]), mayo.field.MultiplyMatrices(O, vecToMatrix(xIndexed))))[0]
 
 		s = append(s, OX...)
 		s = append(s, xIndexed...)
@@ -385,11 +385,11 @@ func (mayo *Mayo) echelonForm(B [][]byte) [][]byte {
 		B[pivotRow], B[nextPivotRow] = B[nextPivotRow], B[pivotRow]
 
 		// Make the leading entry a 1
-		B[pivotRow] = field.MultiplyVecConstant(mayo.field.Gf16Inv(B[pivotRow][pivotColumn]), B[pivotRow])
+		B[pivotRow] = mayo.field.MultiplyVecConstant(mayo.field.Gf16Inv(B[pivotRow][pivotColumn]), B[pivotRow])
 
 		// Eliminate entries below the pivot
 		for row := nextPivotRow + 1; row < mayo.m; row++ {
-			B[row] = field.SubVec(B[row], field.MultiplyVecConstant(B[row][pivotColumn], B[pivotRow]))
+			B[row] = field.SubVec(B[row], mayo.field.MultiplyVecConstant(B[row][pivotColumn], B[pivotRow]))
 		}
 
 		pivotRow++
@@ -404,12 +404,12 @@ func (mayo *Mayo) sampleSolution(A [][]byte, y []byte, R []byte) ([]byte, bool) 
 	x := make([]byte, len(R))
 	copy(x, R)
 
-	yMatrix := field.SubVec(y, field.TransposeMatrix(mayo.field.MultiplyMatrices(A, vecToMatrix(R)))[0])
+	yMatrix := field.SubVec(y, transposeMatrix(mayo.field.MultiplyMatrices(A, vecToMatrix(R)))[0])
 
 	// Put (A y) in echelon form with leading 1's
-	AyMatrix := field.AppendVecToMatrix(A, yMatrix)
+	AyMatrix := appendVecToMatrix(A, yMatrix)
 	AyMatrix = mayo.echelonForm(AyMatrix)
-	A, y = field.ExtractVecFromMatrix(AyMatrix)
+	A, y = extractVecFromMatrix(AyMatrix)
 
 	// Check if A has rank m
 	zeroVector := make([]byte, mayo.k*mayo.o)
