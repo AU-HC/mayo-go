@@ -3,14 +3,28 @@ package main
 import (
 	"encoding/hex"
 	"fmt"
-	standard "mayo-go/mayo"
+	"mayo-go/benchmark"
+	"mayo-go/flags"
+	crypto "mayo-go/mayo"
 	"time"
 )
 
 func main() {
+	// Get application flags
+	arguments := flags.GetApplicationArguments()
+	securityLevel := arguments.ParameterSet
+	amountOfBenchmarkSamples := arguments.AmountBenchmarkingSamples
+
+	// If amount of samples
+	if amountOfBenchmarkSamples > 0 {
+		benchmark.ParameterSet(securityLevel, amountOfBenchmarkSamples)
+		fmt.Println("Benchmarking done, see benchmark/results for results")
+		return
+	}
+
 	// Initialize MAYO
 	message := []byte("Hello, world!")
-	mayo, err := standard.InitMayo(2)
+	mayo, err := crypto.InitMayo(2)
 	if err != nil {
 		fmt.Println(err)
 		return
