@@ -8,7 +8,7 @@ import (
 )
 
 func Test(t *testing.T) {
-	runtime.SetCPUProfileRate(250)
+	runtime.SetCPUProfileRate(300)
 	// Initialize MAYO
 	message := []byte("This is a message.")
 	mayo, err := InitMayo(2)
