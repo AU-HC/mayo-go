@@ -127,15 +127,23 @@ func (mayo *Mayo) Sign(esk, m []byte) []byte {
 		}
 
 		for i := 0; i < mayo.k; i++ {
+			// Calculate v_i P1 and v_i P1 v_i
+			viP := make([][]byte, mayo.m)
+			viPvi := make([]byte, mayo.m)
+			for a := 0; a < mayo.m; a++ {
+				viP[a] = mayo.field.VectorTransposedMatrixMul(v[i], P1[a])
+				viPvi[a] = mayo.field.VecInnerProduct(viP[a], v[i])
+			}
+
 			for j := mayo.k - 1; j >= i; j-- {
 				u := make([]byte, mayo.m)
 				if i == j {
 					for a := 0; a < mayo.m; a++ {
-						u[a] = mayo.field.VecInnerProduct(mayo.field.VectorTransposedMatrixMul(v[i], P1[a]), v[i])
+						u[a] = viPvi[a]
 					}
 				} else {
 					for a := 0; a < mayo.m; a++ {
-						u[a] = mayo.field.VecInnerProduct(mayo.field.VectorTransposedMatrixMul(v[i], P1[a]), v[j]) ^
+						u[a] = mayo.field.VecInnerProduct(viP[a], v[j]) ^
 							mayo.field.VecInnerProduct(mayo.field.VectorTransposedMatrixMul(v[j], P1[a]), v[i])
 					}
 				}
