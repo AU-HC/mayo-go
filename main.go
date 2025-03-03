@@ -18,7 +18,7 @@ func main() {
 	// If amount of samples
 	if amountOfBenchmarkSamples > 0 {
 		benchmark.ParameterSet(securityLevel, amountOfBenchmarkSamples)
-		fmt.Println("Benchmarking done, see benchmark/results for results")
+		fmt.Println("Benchmarking done, see benchmark/results for more information")
 		return
 	}
 

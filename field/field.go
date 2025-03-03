@@ -18,6 +18,47 @@ func InitField() *Field {
 	}
 }
 
+func (f *Field) VectorTransposedMatrixMul(vec []byte, matrix [][]byte) []byte {
+	cols := len(matrix)
+	if cols == 0 || len(vec) != len(matrix) {
+		panic("Vector length must match matrix row count")
+	}
+
+	rows := len(matrix[0])
+	result := make([]byte, rows)
+
+	for i := 0; i < rows; i++ {
+		var sum byte
+		for j := 0; j < cols; j++ {
+			sum ^= f.Gf16Mul(vec[j], matrix[j][i])
+		}
+		result[i] = sum
+	}
+
+	return result
+}
+
+func (f *Field) MatrixVectorMul(matrix [][]byte, vec []byte) [][]byte {
+	rows := len(matrix)
+	if rows == 0 || len(vec) != len(matrix[0]) {
+		panic("Vector length must match matrix column count")
+	}
+
+	cols := len(matrix[0])
+	result := make([][]byte, rows)
+
+	for i := 0; i < rows; i++ {
+		result[i] = make([]byte, 1) // Result is a column vector
+		var sum byte
+		for j := 0; j < cols; j++ {
+			sum ^= f.Gf16Mul(vec[j], matrix[i][j])
+		}
+		result[i][0] = sum
+	}
+
+	return result
+}
+
 // MultiplyMatrices multiplies two matrices
 func (f *Field) MultiplyMatrices(A, B [][]byte) [][]byte {
 	rowsA, colsA := len(A), len(A[0])
@@ -88,6 +129,19 @@ func (f *Field) Gf16Mul(a, b byte) byte {
 // Gf16Inv calculates the inverse of an element in GF(16)
 func (f *Field) Gf16Inv(a byte) byte {
 	return f.invTable[a]
+}
+
+func (f *Field) VecInnerProduct(vec1Transposed []byte, vec2 []byte) byte {
+	if len(vec1Transposed) != len(vec2) {
+		panic("Vectors must have the same length")
+	}
+
+	var result byte = 0
+	for i := 0; i < len(vec1Transposed); i++ {
+		result ^= f.Gf16Mul(vec1Transposed[i], vec2[i])
+	}
+
+	return result
 }
 
 // TODO: Refactor?

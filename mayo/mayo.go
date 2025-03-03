@@ -228,17 +228,12 @@ func (mayo *Mayo) Verify(epk, m, sig []byte) int {
 			u := make([]byte, mayo.m)
 			if i == j {
 				for a := 0; a < mayo.m; a++ {
-					siMatrix := vecToMatrix(sVector[i])
-					u[a] = mayo.field.MultiplyMatrices(mayo.field.MultiplyMatrices(transposeVector(sVector[i]), P[a]), siMatrix)[0][0]
+					u[a] = mayo.field.VecInnerProduct(mayo.field.VectorTransposedMatrixMul(sVector[i], P[a]), sVector[i])
 				}
 			} else {
 				for a := 0; a < mayo.m; a++ {
-					siMatrix := vecToMatrix(sVector[i])
-					sjMatrix := vecToMatrix(sVector[j])
-					u[a] = field.AddMatrices(
-						mayo.field.MultiplyMatrices(mayo.field.MultiplyMatrices(transposeVector(sVector[i]), P[a]), sjMatrix),
-						mayo.field.MultiplyMatrices(mayo.field.MultiplyMatrices(transposeVector(sVector[j]), P[a]), siMatrix),
-					)[0][0]
+					u[a] = mayo.field.VecInnerProduct(mayo.field.VectorTransposedMatrixMul(sVector[i], P[a]), sVector[j]) ^
+						mayo.field.VecInnerProduct(mayo.field.VectorTransposedMatrixMul(sVector[j], P[a]), sVector[i])
 				}
 			}
 
