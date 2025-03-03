@@ -38,7 +38,8 @@ func (f *Field) VectorTransposedMatrixMul(vec []byte, matrix [][]byte) []byte {
 	return result
 }
 
-// MatrixVectorMul TODO
+// MatrixVectorMul Takes a matrix and vector, here we assume that the output of this multiplication will be a
+// vector, since this is the case in MAYO.
 func (f *Field) MatrixVectorMul(matrix [][]byte, vec []byte) []byte {
 	rows := len(matrix)
 	if rows == 0 || len(vec) != len(matrix[0]) {
@@ -130,7 +131,6 @@ func (f *Field) VecInnerProduct(vec1Transposed []byte, vec2 []byte) byte {
 	return result
 }
 
-// TODO: Refactor?
 func gf16Mul(a, b byte) byte {
 	var r byte
 	if b&1 != 0 {
