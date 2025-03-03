@@ -217,7 +217,7 @@ func (mayo *Mayo) Verify(epk, m, sig []byte) int {
 
 	// Hash the message and derive t
 	mDigest := rand.Shake256(mayo.digestBytes, m)
-	t := decodeVec(mayo.m, rand.Shake256(int(math.Ceil(float64(mayo.m)*math.Log2(float64(mayo.q))/8)), mDigest, salt))
+	t := decodeVec(mayo.m, rand.Shake256(mayo.intTimesLogQ(mayo.m), mDigest, salt))
 
 	// Compute P^*(s)
 	P := mayo.calculateP(P1, P2, P3)
