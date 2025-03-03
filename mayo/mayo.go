@@ -153,14 +153,12 @@ func (mayo *Mayo) Sign(esk, m []byte) []byte {
 					y[d+ell] ^= u[d]
 				}
 
-				// TODO: Make this one for loop?
 				for row := 0; row < mayo.m; row++ {
 					for column := i * mayo.o; column < (i+1)*mayo.o; column++ {
 						A[row+ell][column] ^= M[j][row][column%mayo.o]
 					}
-				}
-				if i != j {
-					for row := 0; row < mayo.m; row++ {
+
+					if i != j {
 						for column := j * mayo.o; column < (j+1)*mayo.o; column++ {
 							A[row+ell][column] ^= M[i][row][column%mayo.o]
 						}
