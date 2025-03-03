@@ -39,7 +39,7 @@ func ParameterSet(securityLevel, n int) {
 		expandSKResults[i] = duration.Nanoseconds()
 	}
 
-	// Benchmark ExpandPK TODO: Fix this
+	// Benchmark ExpandPK
 	expandPKResults := make([]int64, n)
 	for i := 0; i < n; i++ {
 		before := time.Now()

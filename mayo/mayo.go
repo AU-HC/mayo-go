@@ -127,21 +127,24 @@ func (mayo *Mayo) Sign(esk, m []byte) []byte {
 		}
 
 		for i := 0; i < mayo.k; i++ {
+			// Calculate v_i P1 and v_i P1 v_i
+			viP := make([][]byte, mayo.m)
+			viPvi := make([]byte, mayo.m)
+			for a := 0; a < mayo.m; a++ {
+				viP[a] = mayo.field.VectorTransposedMatrixMul(v[i], P1[a])
+				viPvi[a] = mayo.field.VecInnerProduct(viP[a], v[i])
+			}
+
 			for j := mayo.k - 1; j >= i; j-- {
 				u := make([]byte, mayo.m)
 				if i == j {
 					for a := 0; a < mayo.m; a++ {
-						vMatrix := vecToMatrix(v[i])
-						u[a] = mayo.field.MultiplyMatrices(mayo.field.MultiplyMatrices(transposeVector(v[i]), P1[a]), vMatrix)[0][0]
+						u[a] = viPvi[a]
 					}
 				} else {
 					for a := 0; a < mayo.m; a++ {
-						viMatrix := vecToMatrix(v[i])
-						vjMatrix := vecToMatrix(v[j])
-						u[a] = field.AddMatrices(
-							mayo.field.MultiplyMatrices(mayo.field.MultiplyMatrices(transposeVector(v[i]), P1[a]), vjMatrix),
-							mayo.field.MultiplyMatrices(mayo.field.MultiplyMatrices(transposeVector(v[j]), P1[a]), viMatrix),
-						)[0][0]
+						u[a] = mayo.field.VecInnerProduct(viP[a], v[j]) ^
+							mayo.field.VecInnerProduct(mayo.field.VectorTransposedMatrixMul(v[j], P1[a]), v[i])
 					}
 				}
 
@@ -150,14 +153,12 @@ func (mayo *Mayo) Sign(esk, m []byte) []byte {
 					y[d+ell] ^= u[d]
 				}
 
-				// TODO: Make this one for loop?
 				for row := 0; row < mayo.m; row++ {
 					for column := i * mayo.o; column < (i+1)*mayo.o; column++ {
 						A[row+ell][column] ^= M[j][row][column%mayo.o]
 					}
-				}
-				if i != j {
-					for row := 0; row < mayo.m; row++ {
+
+					if i != j {
 						for column := j * mayo.o; column < (j+1)*mayo.o; column++ {
 							A[row+ell][column] ^= M[i][row][column%mayo.o]
 						}
@@ -183,8 +184,7 @@ func (mayo *Mayo) Sign(esk, m []byte) []byte {
 	var s []byte
 	for i := 0; i < mayo.k; i++ {
 		xIndexed := x[i*mayo.o : (i+1)*mayo.o]
-		OX := transposeMatrix(field.AddMatrices(vecToMatrix(v[i]), mayo.field.MultiplyMatrices(O, vecToMatrix(xIndexed))))[0]
-
+		OX := field.AddVec(v[i], mayo.field.MatrixVectorMul(O, xIndexed))
 		s = append(s, OX...)
 		s = append(s, xIndexed...)
 	}
@@ -224,21 +224,24 @@ func (mayo *Mayo) Verify(epk, m, sig []byte) int {
 	y := make([]byte, mayo.m+(mayo.k*(mayo.k+1)/2))
 	ell := 0
 	for i := 0; i < mayo.k; i++ {
+		// Calculate s_i P and s_i P s_i
+		siP := make([][]byte, mayo.m)
+		siPsi := make([]byte, mayo.m)
+		for a := 0; a < mayo.m; a++ {
+			siP[a] = mayo.field.VectorTransposedMatrixMul(sVector[i], P[a])
+			siPsi[a] = mayo.field.VecInnerProduct(siP[a], sVector[i])
+		}
+
 		for j := mayo.k - 1; j >= i; j-- {
 			u := make([]byte, mayo.m)
 			if i == j {
 				for a := 0; a < mayo.m; a++ {
-					siMatrix := vecToMatrix(sVector[i])
-					u[a] = mayo.field.MultiplyMatrices(mayo.field.MultiplyMatrices(transposeVector(sVector[i]), P[a]), siMatrix)[0][0]
+					u[a] = siPsi[a]
 				}
 			} else {
 				for a := 0; a < mayo.m; a++ {
-					siMatrix := vecToMatrix(sVector[i])
-					sjMatrix := vecToMatrix(sVector[j])
-					u[a] = field.AddMatrices(
-						mayo.field.MultiplyMatrices(mayo.field.MultiplyMatrices(transposeVector(sVector[i]), P[a]), sjMatrix),
-						mayo.field.MultiplyMatrices(mayo.field.MultiplyMatrices(transposeVector(sVector[j]), P[a]), siMatrix),
-					)[0][0]
+					u[a] = mayo.field.VecInnerProduct(siP[a], sVector[j]) ^
+						mayo.field.VecInnerProduct(mayo.field.VectorTransposedMatrixMul(sVector[j], P[a]), sVector[i])
 				}
 			}
 
@@ -389,7 +392,7 @@ func (mayo *Mayo) echelonForm(B [][]byte) [][]byte {
 
 		// Eliminate entries below the pivot
 		for row := nextPivotRow + 1; row < mayo.m; row++ {
-			B[row] = field.SubVec(B[row], mayo.field.MultiplyVecConstant(B[row][pivotColumn], B[pivotRow]))
+			B[row] = field.AddVec(B[row], mayo.field.MultiplyVecConstant(B[row][pivotColumn], B[pivotRow]))
 		}
 
 		pivotRow++
@@ -404,7 +407,7 @@ func (mayo *Mayo) sampleSolution(A [][]byte, y []byte, R []byte) ([]byte, bool) 
 	x := make([]byte, len(R))
 	copy(x, R)
 
-	yMatrix := field.SubVec(y, transposeMatrix(mayo.field.MultiplyMatrices(A, vecToMatrix(R)))[0])
+	yMatrix := field.AddVec(y, mayo.field.MatrixVectorMul(A, R))
 
 	// Put (A y) in echelon form with leading 1's
 	AyMatrix := appendVecToMatrix(A, yMatrix)

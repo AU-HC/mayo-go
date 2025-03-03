@@ -106,15 +106,6 @@ func encodeMatrices(r, c int, matrices [][][]byte, isUpperTriangular bool) []byt
 	return encoded
 }
 
-// vecToMatrix converts a byte slice into a matrix of byte slices
-func vecToMatrix(vec []byte) [][]byte {
-	matrix := make([][]byte, len(vec))
-	for i, elem := range vec {
-		matrix[i] = []byte{elem}
-	}
-	return matrix
-}
-
 // transposeVector transposes a vector into a matrix
 func transposeVector(vec []byte) [][]byte {
 	matrix := make([][]byte, 1)

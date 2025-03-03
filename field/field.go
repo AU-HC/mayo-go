@@ -18,6 +18,48 @@ func InitField() *Field {
 	}
 }
 
+func (f *Field) VectorTransposedMatrixMul(vec []byte, matrix [][]byte) []byte {
+	cols := len(matrix)
+	if cols == 0 || len(vec) != len(matrix) {
+		panic("Vector length must match matrix row count")
+	}
+
+	rows := len(matrix[0])
+	result := make([]byte, rows)
+
+	for i := 0; i < rows; i++ {
+		var sum byte
+		for j := 0; j < cols; j++ {
+			sum ^= f.Gf16Mul(vec[j], matrix[j][i])
+		}
+		result[i] = sum
+	}
+
+	return result
+}
+
+// MatrixVectorMul Takes a matrix and vector, here we assume that the output of this multiplication will be a
+// vector, since this is the case in MAYO.
+func (f *Field) MatrixVectorMul(matrix [][]byte, vec []byte) []byte {
+	rows := len(matrix)
+	if rows == 0 || len(vec) != len(matrix[0]) {
+		panic("Vector length must match matrix column count")
+	}
+
+	cols := len(matrix[0])
+	result := make([]byte, rows)
+
+	for i := 0; i < rows; i++ {
+		var sum byte
+		for j := 0; j < cols; j++ {
+			sum ^= f.Gf16Mul(vec[j], matrix[i][j])
+		}
+		result[i] = sum
+	}
+
+	return result
+}
+
 // MultiplyMatrices multiplies two matrices
 func (f *Field) MultiplyMatrices(A, B [][]byte) [][]byte {
 	rowsA, colsA := len(A), len(A[0])
@@ -51,21 +93,7 @@ func AddMatrices(A, B [][]byte) [][]byte {
 
 	C := make([][]byte, rowsA)
 	for i := range C {
-		C[i] = addVectors(A[i], B[i])
-	}
-
-	return C
-}
-
-// SubVec subtracts two vectors element-wise
-func SubVec(A, B []byte) []byte {
-	if len(A) != len(B) {
-		panic(fmt.Sprintf("Cannot sub vectors of length %d and %d", len(A), len(B)))
-	}
-
-	C := make([]byte, len(A))
-	for i := range C {
-		C[i] = A[i] ^ B[i]
+		C[i] = AddVec(A[i], B[i])
 	}
 
 	return C
@@ -90,7 +118,19 @@ func (f *Field) Gf16Inv(a byte) byte {
 	return f.invTable[a]
 }
 
-// TODO: Refactor?
+func (f *Field) VecInnerProduct(vec1Transposed []byte, vec2 []byte) byte {
+	if len(vec1Transposed) != len(vec2) {
+		panic("Vectors must have the same length")
+	}
+
+	var result byte = 0
+	for i := 0; i < len(vec1Transposed); i++ {
+		result ^= f.Gf16Mul(vec1Transposed[i], vec2[i])
+	}
+
+	return result
+}
+
 func gf16Mul(a, b byte) byte {
 	var r byte
 	if b&1 != 0 {
@@ -125,7 +165,7 @@ func generateMulAndInvTable() ([][]byte, []byte) {
 	return mulTable, invTable
 }
 
-func addVectors(A, B []byte) []byte {
+func AddVec(A, B []byte) []byte {
 	if len(A) != len(B) {
 		panic("Cannot add vectors of different lengths")
 	}
