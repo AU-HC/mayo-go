@@ -178,8 +178,7 @@ func (mayo *Mayo) Sign(esk, m []byte) []byte {
 	var s []byte
 	for i := 0; i < mayo.k; i++ {
 		xIndexed := x[i*mayo.o : (i+1)*mayo.o]
-		OX := transposeMatrix(field.AddMatrices(vecToMatrix(v[i]), mayo.field.MultiplyMatrices(O, vecToMatrix(xIndexed))))[0]
-
+		OX := field.AddVec(v[i], mayo.field.MatrixVectorMul(O, xIndexed))
 		s = append(s, OX...)
 		s = append(s, xIndexed...)
 	}
@@ -379,7 +378,7 @@ func (mayo *Mayo) echelonForm(B [][]byte) [][]byte {
 
 		// Eliminate entries below the pivot
 		for row := nextPivotRow + 1; row < mayo.m; row++ {
-			B[row] = field.SubVec(B[row], mayo.field.MultiplyVecConstant(B[row][pivotColumn], B[pivotRow]))
+			B[row] = field.AddVec(B[row], mayo.field.MultiplyVecConstant(B[row][pivotColumn], B[pivotRow]))
 		}
 
 		pivotRow++
@@ -394,7 +393,7 @@ func (mayo *Mayo) sampleSolution(A [][]byte, y []byte, R []byte) ([]byte, bool) 
 	x := make([]byte, len(R))
 	copy(x, R)
 
-	yMatrix := field.SubVec(y, transposeMatrix(mayo.field.MultiplyMatrices(A, vecToMatrix(R)))[0])
+	yMatrix := field.AddVec(y, mayo.field.MatrixVectorMul(A, R))
 
 	// Put (A y) in echelon form with leading 1's
 	AyMatrix := appendVecToMatrix(A, yMatrix)

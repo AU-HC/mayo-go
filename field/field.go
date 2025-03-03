@@ -38,22 +38,22 @@ func (f *Field) VectorTransposedMatrixMul(vec []byte, matrix [][]byte) []byte {
 	return result
 }
 
-func (f *Field) MatrixVectorMul(matrix [][]byte, vec []byte) [][]byte {
+// MatrixVectorMul TODO
+func (f *Field) MatrixVectorMul(matrix [][]byte, vec []byte) []byte {
 	rows := len(matrix)
 	if rows == 0 || len(vec) != len(matrix[0]) {
 		panic("Vector length must match matrix column count")
 	}
 
 	cols := len(matrix[0])
-	result := make([][]byte, rows)
+	result := make([]byte, rows)
 
 	for i := 0; i < rows; i++ {
-		result[i] = make([]byte, 1) // Result is a column vector
 		var sum byte
 		for j := 0; j < cols; j++ {
 			sum ^= f.Gf16Mul(vec[j], matrix[i][j])
 		}
-		result[i][0] = sum
+		result[i] = sum
 	}
 
 	return result
@@ -92,21 +92,7 @@ func AddMatrices(A, B [][]byte) [][]byte {
 
 	C := make([][]byte, rowsA)
 	for i := range C {
-		C[i] = addVectors(A[i], B[i])
-	}
-
-	return C
-}
-
-// SubVec subtracts two vectors element-wise
-func SubVec(A, B []byte) []byte {
-	if len(A) != len(B) {
-		panic(fmt.Sprintf("Cannot sub vectors of length %d and %d", len(A), len(B)))
-	}
-
-	C := make([]byte, len(A))
-	for i := range C {
-		C[i] = A[i] ^ B[i]
+		C[i] = AddVec(A[i], B[i])
 	}
 
 	return C
@@ -179,7 +165,7 @@ func generateMulAndInvTable() ([][]byte, []byte) {
 	return mulTable, invTable
 }
 
-func addVectors(A, B []byte) []byte {
+func AddVec(A, B []byte) []byte {
 	if len(A) != len(B) {
 		panic("Cannot add vectors of different lengths")
 	}
