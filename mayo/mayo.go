@@ -131,17 +131,12 @@ func (mayo *Mayo) Sign(esk, m []byte) []byte {
 				u := make([]byte, mayo.m)
 				if i == j {
 					for a := 0; a < mayo.m; a++ {
-						vMatrix := vecToMatrix(v[i])
-						u[a] = mayo.field.MultiplyMatrices(mayo.field.MultiplyMatrices(transposeVector(v[i]), P1[a]), vMatrix)[0][0]
+						u[a] = mayo.field.VecInnerProduct(mayo.field.VectorTransposedMatrixMul(v[i], P1[a]), v[i])
 					}
 				} else {
 					for a := 0; a < mayo.m; a++ {
-						viMatrix := vecToMatrix(v[i])
-						vjMatrix := vecToMatrix(v[j])
-						u[a] = field.AddMatrices(
-							mayo.field.MultiplyMatrices(mayo.field.MultiplyMatrices(transposeVector(v[i]), P1[a]), vjMatrix),
-							mayo.field.MultiplyMatrices(mayo.field.MultiplyMatrices(transposeVector(v[j]), P1[a]), viMatrix),
-						)[0][0]
+						u[a] = mayo.field.VecInnerProduct(mayo.field.VectorTransposedMatrixMul(v[i], P1[a]), v[j]) ^
+							mayo.field.VecInnerProduct(mayo.field.VectorTransposedMatrixMul(v[j], P1[a]), v[i])
 					}
 				}
 
