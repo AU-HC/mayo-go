@@ -32,13 +32,11 @@ func parseKatData(fileName string) []Data {
 	defer file.Close()
 
 	// Read file line by line
-
 	scanner := bufio.NewScanner(file)
 	scanner.Scan()
 	scanner.Scan()
 
 	for scanner.Scan() {
-
 		var katReqData Data
 
 		line := scanner.Text()
