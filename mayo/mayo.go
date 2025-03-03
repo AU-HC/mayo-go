@@ -218,15 +218,23 @@ func (mayo *Mayo) Verify(epk, m, sig []byte) int {
 	y := make([]byte, mayo.m+(mayo.k*(mayo.k+1)/2))
 	ell := 0
 	for i := 0; i < mayo.k; i++ {
+		// Calculate s_i P and s_i P s_i
+		siP := make([][]byte, mayo.m)
+		siPsi := make([]byte, mayo.m)
+		for a := 0; a < mayo.m; a++ {
+			siP[a] = mayo.field.VectorTransposedMatrixMul(sVector[i], P[a])
+			siPsi[a] = mayo.field.VecInnerProduct(siP[a], sVector[i])
+		}
+
 		for j := mayo.k - 1; j >= i; j-- {
 			u := make([]byte, mayo.m)
 			if i == j {
 				for a := 0; a < mayo.m; a++ {
-					u[a] = mayo.field.VecInnerProduct(mayo.field.VectorTransposedMatrixMul(sVector[i], P[a]), sVector[i])
+					u[a] = siPsi[a]
 				}
 			} else {
 				for a := 0; a < mayo.m; a++ {
-					u[a] = mayo.field.VecInnerProduct(mayo.field.VectorTransposedMatrixMul(sVector[i], P[a]), sVector[j]) ^
+					u[a] = mayo.field.VecInnerProduct(siP[a], sVector[j]) ^
 						mayo.field.VecInnerProduct(mayo.field.VectorTransposedMatrixMul(sVector[j], P[a]), sVector[i])
 				}
 			}

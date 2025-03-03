@@ -25,17 +25,15 @@ func TestKat5(t *testing.T) {
 
 func CheckMayoKat(fileName string, securityLevel int, t *testing.T) {
 	katDataList := parseKatData(fileName)
+	mayo, err := standard.InitMayo(securityLevel)
+	if err != nil {
+		t.Error(err)
+	}
 
 	for _, katData := range katDataList {
-		mayo, err := standard.InitMayo(securityLevel)
-
-		if err != nil {
-			t.Error(err)
-		}
-
 		rand.InitRandomness(katData.seed, make([]byte, 48), 256)
 
-		epk, esk, err := mayo.CompactKeyGen()
+		epk, esk, _ := mayo.CompactKeyGen()
 
 		if !bytes.Equal(epk, katData.pk) {
 			t.Error("Generated PK and KAT PK are not equal", katData.count, epk, katData.pk)
