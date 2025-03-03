@@ -49,12 +49,12 @@ func TestEncodeVecHandleOverflow(t *testing.T) {
 	decoded := decodeVec(n, encoded)
 
 	// Ensure that encoding forces values inside field
-	for i, elem := range b {
-		b[i] = elem & 0xf
+	for i := range b {
+		b[i] &= 0xf
 	}
 
 	if !bytes.Equal(b, decoded) {
-		t.Error("Overflow not handled correctly", encoded, b)
+		t.Error("Overflow not handled correctly", decoded, b)
 	}
 }
 
