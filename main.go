@@ -37,7 +37,7 @@ func main() {
 		fmt.Println(err)
 		return
 	}
-	fmt.Println(fmt.Sprintf("Compact keygen took: %dms", time.Since(before).Milliseconds()))
+	fmt.Println(fmt.Sprintf("Keygen took: %dms", time.Since(before).Milliseconds()))
 
 	// Sign the message
 	before = time.Now()
