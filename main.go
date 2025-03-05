@@ -31,14 +31,16 @@ func main() {
 	}
 
 	// Generate the public key and secret key
+	before := time.Now()
 	cpk, csk, err := mayo.CompactKeyGen()
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
+	fmt.Println(fmt.Sprintf("Keygen took: %dms", time.Since(before).Milliseconds()))
 
 	// Sign the message
-	before := time.Now()
+	before = time.Now()
 	sig := mayo.APISign(message, csk)
 	fmt.Println(fmt.Sprintf("Signing took: %dms", time.Since(before).Milliseconds()))
 
