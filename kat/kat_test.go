@@ -48,7 +48,7 @@ func CheckMayoKat(fileName string, securityLevel int, t *testing.T) {
 
 		sig := mayo.APISign(katData.message, esk)
 		if !bytes.Equal(sig, katData.signature) {
-			t.Error("Generated signature and KAT signature are not equal", katData.count, sig, katData.signature)
+			t.Error(fmt.Sprintf("enerated signature and KAT signature are not equal for iteration: %d:\n Got      %v\n Expected %v", katData.count, sig, katData.signature))
 			return
 		}
 	}

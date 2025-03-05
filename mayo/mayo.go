@@ -53,20 +53,10 @@ func (mayo *Mayo) ExpandSK(csk []byte) []byte {
 	P1 := P[:mayo.p1Bytes/4]                                // v x v upper triangular matrix
 	P2 := P[mayo.p1Bytes/4 : (mayo.p1Bytes+mayo.p2Bytes)/4] // v x o matrix
 
-	//P := rand.AES128CTR(seedPk, mayo.p1Bytes+mayo.p2Bytes)
-	//p1Bytes := P[:mayo.p1Bytes]
-	//P1 := decodeMatrices(mayo.m, mayo.v, mayo.v, p1Bytes, true)
-	//P2 := decodeMatrices(mayo.m, mayo.v, mayo.o, P[mayo.p1Bytes:mayo.p1Bytes+mayo.p2Bytes], false)
+	// Compute L
+	lBytes := mayo.computeL(P1, O, P2)
 
-	L := mayo.computeL(P1, O, P2)
-
-	// Compute the L
-	//L := make([][][]byte, mayo.m)
-	//for i := 0; i < mayo.m; i++ {
-	//	L[i] = field.AddMatrices(mayo.field.MultiplyMatrices(field.AddMatrices(P1[i], transposeMatrix(P1[i])), O), P2[i])
-	//}
-
-	// Encode L and output esk
+	// Encode the SK and output esk
 	p1Bytes := make([]byte, mayo.p1Bytes)
 	uint32SliceToBytes(p1Bytes, P1)
 
@@ -74,7 +64,7 @@ func (mayo *Mayo) ExpandSK(csk []byte) []byte {
 	copy(esk[:mayo.skSeedBytes], seedSk)
 	copy(esk[mayo.skSeedBytes:], oByteString)
 	copy(esk[mayo.skSeedBytes+mayo.oBytes:], p1Bytes)
-	copy(esk[mayo.skSeedBytes+mayo.oBytes+mayo.p1Bytes:], L)
+	copy(esk[mayo.skSeedBytes+mayo.oBytes+mayo.p1Bytes:], lBytes)
 	return esk
 }
 

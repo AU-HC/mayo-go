@@ -105,7 +105,7 @@ func (mayo *Mayo) computeL(P1 []uint32, O [][]byte, P2 []uint32) []byte {
 			bsMatEntriesUsed += 1
 		}
 	}
-
+	// Serialize L to bytes
 	lBytes := make([]byte, mayo.lBytes)
 	uint32SliceToBytes(lBytes, P2)
 	return lBytes
