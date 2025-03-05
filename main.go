@@ -17,7 +17,7 @@ func main() {
 
 	// If amount of samples
 	if amountOfBenchmarkSamples > 0 {
-		benchmark.ParameterSet(securityLevel, amountOfBenchmarkSamples)
+		benchmark.ParameterSet(securityLevel, amountOfBenchmarkSamples) // TODO: Return filename?
 		fmt.Println("Benchmarking done, see benchmark/results for more information")
 		return
 	}
@@ -31,14 +31,16 @@ func main() {
 	}
 
 	// Generate the public key and secret key
+	before := time.Now()
 	cpk, csk, err := mayo.CompactKeyGen()
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
+	fmt.Println(fmt.Sprintf("Compact keygen took: %dms", time.Since(before).Milliseconds()))
 
 	// Sign the message
-	before := time.Now()
+	before = time.Now()
 	sig := mayo.APISign(message, csk)
 	fmt.Println(fmt.Sprintf("Signing took: %dms", time.Since(before).Milliseconds()))
 

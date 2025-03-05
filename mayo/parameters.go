@@ -33,7 +33,7 @@ func InitMayo(securityLevel int) (*Mayo, error) {
 	} else if securityLevel == 5 {
 		return initMayo(154, 142, 12, 12, 16, 40, 64, 16, []byte{4, 0, 8, 1}), nil
 	}
-
+	// 8040201
 	return nil, errors.New(
 		fmt.Sprintf("Wrong security level supplied: '%d'. Must be either '1', '2', '3', or '5'.", securityLevel))
 }

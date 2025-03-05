@@ -15,25 +15,22 @@ func (mayo *Mayo) CompactKeyGen() ([]byte, []byte, error) {
 	seedSk := rand.SampleRandomBytes(mayo.skSeedBytes)
 
 	// Derive seedPk and O from seekSk
-	s := rand.Shake256(mayo.pkSeedBytes+mayo.oBytes, seedSk)
+	s := rand.SHAKE256(mayo.pkSeedBytes+mayo.oBytes, seedSk)
 	seedPk := s[:mayo.pkSeedBytes]
 	O := decodeMatrix(mayo.n-mayo.o, mayo.o, s[mayo.pkSeedBytes:mayo.pkSeedBytes+mayo.oBytes])
 
 	// Derive P_i^1 and P_i^2 from seekPk
-	P := rand.Aes128ctr(seedPk, mayo.p1Bytes+mayo.p2Bytes)
-	P1 := decodeMatrices(mayo.m, mayo.v, mayo.v, P[:mayo.p1Bytes], true)
-	P2 := decodeMatrices(mayo.m, mayo.v, mayo.o, P[mayo.p1Bytes:mayo.p1Bytes+mayo.p2Bytes], false)
+	P := rand.AES128CTR32(seedPk, mayo.p1Bytes+mayo.p2Bytes)
+	P1 := P[:mayo.p1Bytes/4]                                // v x v upper triangular matrix
+	P2 := P[mayo.p1Bytes/4 : (mayo.p1Bytes+mayo.p2Bytes)/4] // v x o matrix
 
-	// Compute the P_i^3
-	P3 := make([][][]byte, mayo.m)
-	for i := 0; i < mayo.m; i++ {
-		P3[i] = upper(mayo.field.MultiplyMatrices(transposeMatrix(O), field.AddMatrices(mayo.field.MultiplyMatrices(P1[i], O), P2[i])))
-	}
+	// Compute P3
+	P3Bytes := mayo.computeP3(P1, O, P2)
 
-	// Encode the P_i^3
+	// Encode the compact public/secret key
 	cpk := make([]byte, mayo.cpkBytes)
 	copy(cpk[:mayo.pkSeedBytes], seedPk)
-	copy(cpk[mayo.pkSeedBytes:], encodeMatrices(mayo.o, mayo.o, P3, true))
+	copy(cpk[mayo.pkSeedBytes:], P3Bytes)
 	csk := seedSk
 
 	// Output keys
@@ -46,13 +43,13 @@ func (mayo *Mayo) ExpandSK(csk []byte) []byte {
 	seedSk := csk[:mayo.skSeedBytes]
 
 	// Derive seedPk and O from seedSk
-	S := rand.Shake256(mayo.pkSeedBytes+mayo.oBytes, seedSk)
+	S := rand.SHAKE256(mayo.pkSeedBytes+mayo.oBytes, seedSk)
 	seedPk := S[:mayo.pkSeedBytes]
 	oByteString := S[mayo.pkSeedBytes : mayo.pkSeedBytes+mayo.oBytes]
 	O := decodeMatrix(mayo.n-mayo.o, mayo.o, oByteString)
 
 	// Derive P1 and P2 from seedPk
-	P := rand.Aes128ctr(seedPk, mayo.p1Bytes+mayo.p2Bytes)
+	P := rand.AES128CTR(seedPk, mayo.p1Bytes+mayo.p2Bytes)
 	p1Bytes := P[:mayo.p1Bytes]
 	P1 := decodeMatrices(mayo.m, mayo.v, mayo.v, p1Bytes, true)
 	P2 := decodeMatrices(mayo.m, mayo.v, mayo.o, P[mayo.p1Bytes:mayo.p1Bytes+mayo.p2Bytes], false)
@@ -79,7 +76,7 @@ func (mayo *Mayo) ExpandPK(cpk []byte) []byte {
 
 	// Expand seedPk and return epk
 	epk := make([]byte, mayo.epkBytes)
-	copy(epk[:mayo.p1Bytes+mayo.p2Bytes], rand.Aes128ctr(seedPk, mayo.p1Bytes+mayo.p2Bytes))
+	copy(epk[:mayo.p1Bytes+mayo.p2Bytes], rand.AES128CTR(seedPk, mayo.p1Bytes+mayo.p2Bytes))
 	copy(epk[mayo.p1Bytes+mayo.p2Bytes:], cpk[mayo.pkSeedBytes:mayo.pkSeedBytes+mayo.p3Bytes])
 	return epk
 }
@@ -93,10 +90,10 @@ func (mayo *Mayo) Sign(esk, m []byte) []byte {
 	L := decodeMatrices(mayo.m, mayo.v, mayo.o, esk[mayo.skSeedBytes+mayo.oBytes+mayo.p1Bytes:mayo.eskBytes], false)
 
 	// Hash the message, and derive salt and t
-	mDigest := rand.Shake256(mayo.digestBytes, m)
+	mDigest := rand.SHAKE256(mayo.digestBytes, m)
 	R := rand.SampleRandomBytes(mayo.rBytes)
-	salt := rand.Shake256(mayo.saltBytes, mDigest, R, seedSk)
-	t := decodeVec(mayo.m, rand.Shake256(mayo.intTimesLogQ(mayo.m), mDigest, salt))
+	salt := rand.SHAKE256(mayo.saltBytes, mDigest, R, seedSk)
+	t := decodeVec(mayo.m, rand.SHAKE256(mayo.intTimesLogQ(mayo.m), mDigest, salt))
 
 	// Attempt to find a preimage for t
 	var x []byte
@@ -104,7 +101,7 @@ func (mayo *Mayo) Sign(esk, m []byte) []byte {
 	v := make([][]byte, mayo.k)
 	for ctr := 0; ctr < 256; ctr++ {
 		// Derive v_i and r
-		V := rand.Shake256(mayo.k*mayo.vBytes+mayo.intTimesLogQ(mayo.k, mayo.o), mDigest, salt, seedSk, []byte{byte(ctr)})
+		V := rand.SHAKE256(mayo.k*mayo.vBytes+mayo.intTimesLogQ(mayo.k, mayo.o), mDigest, salt, seedSk, []byte{byte(ctr)})
 		for i := 0; i < mayo.k; i++ {
 			v[i] = decodeVec(mayo.n-mayo.o, V[i*mayo.vBytes:(i+1)*mayo.vBytes])
 		}
@@ -216,8 +213,8 @@ func (mayo *Mayo) Verify(epk, m, sig []byte) int {
 	}
 
 	// Hash the message and derive t
-	mDigest := rand.Shake256(mayo.digestBytes, m)
-	t := decodeVec(mayo.m, rand.Shake256(mayo.intTimesLogQ(mayo.m), mDigest, salt))
+	mDigest := rand.SHAKE256(mayo.digestBytes, m)
+	t := decodeVec(mayo.m, rand.SHAKE256(mayo.intTimesLogQ(mayo.m), mDigest, salt))
 
 	// Compute P^*(s)
 	P := mayo.calculateP(P1, P2, P3)

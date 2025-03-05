@@ -1,5 +1,7 @@
 package mayo
 
+import "encoding/binary"
+
 // encodeVec encodes a byte slice into a byte slice of half the length
 func encodeVec(bytes []byte) []byte {
 	encoded := make([]byte, (len(bytes)+1)/2)
@@ -136,4 +138,12 @@ func generateZeroMatrix(rows, columns int) [][]byte {
 	}
 
 	return matrix
+}
+
+func uint32SliceToBytes(dst []byte, src []uint32) {
+	// Convert each uint32 to 4 bytes
+	for _, s := range src {
+		binary.LittleEndian.PutUint32(dst, s)
+		dst = dst[4:]
+	}
 }

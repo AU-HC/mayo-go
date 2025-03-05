@@ -10,6 +10,7 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/sha3"
+	"encoding/binary"
 	"unsafe"
 )
 
@@ -27,7 +28,7 @@ func SampleRandomBytes(length int) []byte {
 	return value
 }
 
-func Aes128ctr(seed []byte, l int) []byte {
+func AES128CTR(seed []byte, l int) []byte {
 	var nonce [16]byte
 	block, _ := aes.NewCipher(seed[:])
 	ctr := cipher.NewCTR(block, nonce[:])
@@ -36,7 +37,27 @@ func Aes128ctr(seed []byte, l int) []byte {
 	return dst
 }
 
-func Shake256(outputLength int, inputs ...[]byte) []byte {
+func AES128CTR32(seed []byte, l int) []uint32 {
+	// Ensure l is a multiple of 4 for uint32 conversion
+	if l%4 != 0 {
+		l += 4 - (l % 4) // Round up to nearest multiple of 4
+	}
+
+	var nonce [16]byte
+	block, _ := aes.NewCipher(seed[:])
+	ctr := cipher.NewCTR(block, nonce[:])
+	dst := make([]byte, l)
+	ctr.XORKeyStream(dst[:], dst[:])
+
+	result := make([]uint32, l/4)
+	for i := 0; i < len(result); i++ {
+		result[i] = binary.LittleEndian.Uint32(dst[i*4 : (i+1)*4])
+	}
+
+	return result
+}
+
+func SHAKE256(outputLength int, inputs ...[]byte) []byte {
 	output := make([]byte, outputLength)
 
 	h := sha3.NewSHAKE256()
