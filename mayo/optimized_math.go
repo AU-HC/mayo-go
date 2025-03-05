@@ -93,22 +93,20 @@ func (mayo *Mayo) computeP3(P1 []uint32, O [][]byte, P2 []uint32) []byte {
 func (mayo *Mayo) computeL(P1 []uint32, O [][]byte, P2acc []uint32) []byte {
 	bsMatEntriesUsed := 0
 	mVectorLimbs := (mayo.m / 32) * 4
-
 	for r := 0; r < mayo.v; r++ {
 		for c := r; c < mayo.v; c++ {
 			if c == r {
 				bsMatEntriesUsed += 1
 				continue
 			}
-			bsMatStartIndex := bsMatEntriesUsed * (mayo.m / 32) * 4
+			bsMatStartIndex := bsMatEntriesUsed * mVectorLimbs
 			for k := 0; k < mayo.o; k++ {
 				vecMulAdd(P1, bsMatStartIndex, O[c][k], P2acc, (r*mayo.o+k)*mVectorLimbs)
-				vecMulAdd(P1, bsMatStartIndex, O[c][k], P2acc, (c*mayo.o+k)*mVectorLimbs)
+				vecMulAdd(P1, bsMatStartIndex, O[r][k], P2acc, (c*mayo.o+k)*mVectorLimbs)
 			}
 			bsMatEntriesUsed += 1
 		}
 	}
-
 	// Serialize L to bytes TODO: Consider making a struct for PK and simply storing the uint32's
 	lBytes := make([]byte, mayo.lBytes)
 	uint32SliceToBytes(lBytes, P2acc)
