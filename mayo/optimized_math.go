@@ -87,3 +87,26 @@ func (mayo *Mayo) computeP3(P1 []uint32, O [][]byte, P2 []uint32) []byte {
 	uint32SliceToBytes(P3Bytes, P3Upper)
 	return P3Bytes
 }
+
+func (mayo *Mayo) computeL(P1 []uint32, O [][]byte, P2 []uint32) []byte {
+	bsMatEntriesUsed := 0
+	for r := 0; r < mayo.v; r++ {
+		for c := r; c < mayo.v; c++ {
+			if c == r {
+				bsMatEntriesUsed += 1
+				continue
+			}
+			for k := 0; k < mayo.o; k++ {
+				bsMatStartIndex := bsMatEntriesUsed * (mayo.m / 32) * 4
+
+				vecMulAdd(P1, bsMatStartIndex, O[c][k], P2, (r*mayo.o+k)*(mayo.m/32)*4)
+				vecMulAdd(P1, bsMatStartIndex, O[c][k], P2, (c*mayo.o+k)*(mayo.m/32)*4)
+			}
+			bsMatEntriesUsed += 1
+		}
+	}
+
+	lBytes := make([]byte, mayo.lBytes)
+	uint32SliceToBytes(lBytes, P2)
+	return lBytes
+}
