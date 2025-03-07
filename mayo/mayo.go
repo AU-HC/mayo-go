@@ -21,8 +21,8 @@ func (mayo *Mayo) CompactKeyGen() ([]byte, []byte, error) {
 
 	// Derive P_i^1 and P_i^2 from seekPk
 	P := rand.AES128CTR32(seedPk, mayo.p1Bytes+mayo.p2Bytes)
-	P1 := P[:mayo.p1Bytes/4]                                // v x v upper triangular matrix
-	P2 := P[mayo.p1Bytes/4 : (mayo.p1Bytes+mayo.p2Bytes)/4] // v x o matrix
+	P1 := P[:mayo.p1Bytes/8]                                // v x v upper triangular matrix
+	P2 := P[mayo.p1Bytes/8 : (mayo.p1Bytes+mayo.p2Bytes)/8] // v x o matrix
 
 	// Compute P3
 	P3Bytes := mayo.computeP3(P1, O, P2)
@@ -50,15 +50,15 @@ func (mayo *Mayo) ExpandSK(csk []byte) []byte {
 
 	// Derive P1 and P2 from seedPk
 	P := rand.AES128CTR32(seedPk, mayo.p1Bytes+mayo.p2Bytes)
-	P1 := P[:mayo.p1Bytes/4]                                // v x v upper triangular matrix
-	P2 := P[mayo.p1Bytes/4 : (mayo.p1Bytes+mayo.p2Bytes)/4] // v x o matrix
+	P1 := P[:mayo.p1Bytes/8]                                // v x v upper triangular matrix
+	P2 := P[mayo.p1Bytes/8 : (mayo.p1Bytes+mayo.p2Bytes)/8] // v x o matrix
 
 	// Compute L
 	lBytes := mayo.computeL(P1, O, P2)
 
 	// Encode the SK and output esk
 	p1Bytes := make([]byte, mayo.p1Bytes)
-	uint32SliceToBytes(p1Bytes, P1)
+	uint64SliceToBytes(p1Bytes, P1)
 
 	esk := make([]byte, mayo.eskBytes)
 	copy(esk[:mayo.skSeedBytes], seedSk)

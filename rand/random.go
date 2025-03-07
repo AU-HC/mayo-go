@@ -37,7 +37,7 @@ func AES128CTR(seed []byte, l int) []byte {
 	return dst
 }
 
-func AES128CTR32(seed []byte, l int) []uint32 {
+func AES128CTR32(seed []byte, l int) []uint64 {
 	// Ensure l is a multiple of 4 for uint32 conversion
 	if l%4 != 0 {
 		l += 4 - (l % 4) // Round up to nearest multiple of 4
@@ -49,9 +49,9 @@ func AES128CTR32(seed []byte, l int) []uint32 {
 	dst := make([]byte, l)
 	ctr.XORKeyStream(dst[:], dst[:])
 
-	result := make([]uint32, l/4)
+	result := make([]uint64, l/8)
 	for i := 0; i < len(result); i++ {
-		result[i] = binary.LittleEndian.Uint32(dst[i*4 : (i+1)*4])
+		result[i] = binary.LittleEndian.Uint64(dst[i*8 : (i+1)*8])
 	}
 
 	return result

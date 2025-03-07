@@ -1,14 +1,10 @@
 package mayo
 
-import "fmt"
-
 // Note that these optimizations are based on the spec C implementation: https://github.com/PQCMayo/MAYO-C/
 
-func (mayo *Mayo) matMulAdd(bsMat []uint32, mat [][]byte, acc []uint32, bsMatRows, bsMatCols, matCols int, isUpperTriangular int) {
+func (mayo *Mayo) matMulAdd(bsMat []uint64, mat [][]byte, acc []uint64, bsMatRows, bsMatCols, matCols int, isUpperTriangular int) {
 	bsMatEntriesUsed := 0
-	mVectorLimbs := (mayo.m / 32) * 4
-
-	fmt.Println(mVectorLimbs)
+	mVectorLimbs := (mayo.m + 15) / 16
 
 	for r := 0; r < bsMatRows; r++ {
 		for c := r * isUpperTriangular; c < bsMatCols; c++ {
@@ -23,8 +19,8 @@ func (mayo *Mayo) matMulAdd(bsMat []uint32, mat [][]byte, acc []uint32, bsMatRow
 	}
 }
 
-func (mayo *Mayo) mulAddMatTransMat(mat [][]byte, bsMat []uint32, acc []uint32, matRows, matCols, bsMatCols int) {
-	mVectorLimbs := (mayo.m / 32) * 4
+func (mayo *Mayo) mulAddMatTransMat(mat [][]byte, bsMat []uint64, acc []uint64, matRows, matCols, bsMatCols int) {
+	mVectorLimbs := (mayo.m + 15) / 16
 
 	for r := 0; r < matCols; r++ {
 		for c := 0; c < matRows; c++ {
@@ -38,11 +34,11 @@ func (mayo *Mayo) mulAddMatTransMat(mat [][]byte, bsMat []uint32, acc []uint32, 
 	}
 }
 
-func (mayo *Mayo) vecMulAdd(in []uint32, inputStart int, nibble byte, acc []uint32, accStart int) {
+func (mayo *Mayo) vecMulAdd(in []uint64, inputStart int, nibble byte, acc []uint64, accStart int) {
 	tab := mulTable(nibble)
-	var lsbAsk uint32 = 0x11111111 //11111111
+	var lsbAsk uint64 = 0x1111111111111111
 
-	mVectorLimbs := (mayo.m / 32) * 4
+	mVectorLimbs := (mayo.m + 15) / 16
 
 	for i := 0; i < mVectorLimbs; i++ {
 		acc[accStart+i] ^= (in[i+inputStart]&lsbAsk)*(tab&0xff) ^
@@ -52,18 +48,18 @@ func (mayo *Mayo) vecMulAdd(in []uint32, inputStart int, nibble byte, acc []uint
 	}
 }
 
-func mulTable(b byte) uint32 {
-	x := uint32(b) * 0x08040201
+func mulTable(b byte) uint64 {
+	x := uint64(b) * 0x08040201
 
-	highNibbleMask := uint32(0xf0f0f0f0)
+	highNibbleMask := uint64(0xf0f0f0f0)
 
 	highHalf := x & highNibbleMask
 	return x ^ (highHalf >> 4) ^ (highHalf >> 3)
 }
 
-func (mayo *Mayo) upper(matrix []uint32, matrixUpper []uint32, rows, cols int) {
+func (mayo *Mayo) upper(matrix []uint64, matrixUpper []uint64, rows, cols int) {
 	entriesUsed := 0
-	u32PerIndex := (mayo.m / 32) * 4
+	u32PerIndex := (mayo.m + 15) / 16
 
 	for r := 0; r < rows; r++ {
 		for c := r; c < cols; c++ {
@@ -82,25 +78,25 @@ func (mayo *Mayo) upper(matrix []uint32, matrixUpper []uint32, rows, cols int) {
 	}
 }
 
-func (mayo *Mayo) computeP3(P1 []uint32, O [][]byte, P2 []uint32) []byte {
+func (mayo *Mayo) computeP3(P1 []uint64, O [][]byte, P2 []uint64) []byte {
 	// Compute P3 = (−O^T P1 O ) − (−O^T  P2) as P3 = O^t (P1 O + P2)
 	// First compute (P1 O + P2) and store in P2
 	mayo.matMulAdd(P1, O, P2, mayo.v, mayo.v, mayo.o, 1)
 	// Then compute P3 = O^t (P1 O + P2) and store in p3
-	P3 := make([]uint32, mayo.o*mayo.o*mayo.m/8)
+	P3 := make([]uint64, mayo.o*mayo.o*mayo.m/16)
 	mayo.mulAddMatTransMat(O, P2, P3, mayo.v, mayo.o, mayo.o)
 	// Compute upper of P3
-	P3Upper := make([]uint32, mayo.p3Bytes/4)
+	P3Upper := make([]uint64, mayo.p3Bytes/8)
 	mayo.upper(P3, P3Upper, mayo.v, mayo.o)
 	// Serialize P3 to bytes TODO: Consider making a struct for PK and simply storing the uint32's
 	P3Bytes := make([]byte, mayo.p3Bytes)
-	uint32SliceToBytes(P3Bytes, P3Upper)
+	uint64SliceToBytes(P3Bytes, P3Upper)
 	return P3Bytes
 }
 
-func (mayo *Mayo) computeL(P1 []uint32, O [][]byte, P2acc []uint32) []byte {
+func (mayo *Mayo) computeL(P1 []uint64, O [][]byte, P2acc []uint64) []byte {
 	bsMatEntriesUsed := 0
-	mVectorLimbs := (mayo.m / 32) * 4
+	mVectorLimbs := (mayo.m + 15) / 16
 
 	for r := 0; r < mayo.v; r++ {
 		for c := r; c < mayo.v; c++ {
@@ -118,6 +114,6 @@ func (mayo *Mayo) computeL(P1 []uint32, O [][]byte, P2acc []uint32) []byte {
 	}
 	// Serialize L to bytes TODO: Consider making a struct for PK and simply storing the uint32's
 	lBytes := make([]byte, mayo.lBytes)
-	uint32SliceToBytes(lBytes, P2acc)
+	uint64SliceToBytes(lBytes, P2acc)
 	return lBytes
 }

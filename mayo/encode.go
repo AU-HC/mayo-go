@@ -140,10 +140,10 @@ func generateZeroMatrix(rows, columns int) [][]byte {
 	return matrix
 }
 
-func uint32SliceToBytes(dst []byte, src []uint32) {
+func uint64SliceToBytes(dst []byte, src []uint64) {
 	// Convert each uint32 to 4 bytes
 	for _, s := range src {
-		binary.LittleEndian.PutUint32(dst, s)
-		dst = dst[4:]
+		binary.LittleEndian.PutUint64(dst, s)
+		dst = dst[8:]
 	}
 }
