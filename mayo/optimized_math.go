@@ -1,10 +1,14 @@
 package mayo
 
-const W int = 32 / 4
+import "fmt"
+
+// Note that these optimizations are based on the spec C implementation: https://github.com/PQCMayo/MAYO-C/
 
 func (mayo *Mayo) matMulAdd(bsMat []uint32, mat [][]byte, acc []uint32, bsMatRows, bsMatCols, matCols int, isUpperTriangular int) {
 	bsMatEntriesUsed := 0
 	mVectorLimbs := (mayo.m / 32) * 4
+
+	fmt.Println(mVectorLimbs)
 
 	for r := 0; r < bsMatRows; r++ {
 		for c := r * isUpperTriangular; c < bsMatCols; c++ {
@@ -12,7 +16,7 @@ func (mayo *Mayo) matMulAdd(bsMat []uint32, mat [][]byte, acc []uint32, bsMatRow
 				bsMatStartIndex := bsMatEntriesUsed * mVectorLimbs
 				accStartIndex := (r*matCols + k) * mVectorLimbs
 
-				vecMulAdd(bsMat, bsMatStartIndex, mat[c][k], acc, accStartIndex)
+				mayo.vecMulAdd(bsMat, bsMatStartIndex, mat[c][k], acc, accStartIndex)
 			}
 			bsMatEntriesUsed += 1
 		}
@@ -20,23 +24,27 @@ func (mayo *Mayo) matMulAdd(bsMat []uint32, mat [][]byte, acc []uint32, bsMatRow
 }
 
 func (mayo *Mayo) mulAddMatTransMat(mat [][]byte, bsMat []uint32, acc []uint32, matRows, matCols, bsMatCols int) {
+	mVectorLimbs := (mayo.m / 32) * 4
+
 	for r := 0; r < matCols; r++ {
 		for c := 0; c < matRows; c++ {
 			for k := 0; k < bsMatCols; k++ {
-				bsMatStartIndex := (c*bsMatCols + k) * mayo.m / 32 * 4
-				accStartIndex := (r*bsMatCols + k) * mayo.m / 32 * 4
+				bsMatStartIndex := (c*bsMatCols + k) * mVectorLimbs
+				accStartIndex := (r*bsMatCols + k) * mVectorLimbs
 
-				vecMulAdd(bsMat, bsMatStartIndex, mat[c][r], acc, accStartIndex)
+				mayo.vecMulAdd(bsMat, bsMatStartIndex, mat[c][r], acc, accStartIndex)
 			}
 		}
 	}
 }
 
-func vecMulAdd(in []uint32, inputStart int, nibble byte, acc []uint32, accStart int) {
+func (mayo *Mayo) vecMulAdd(in []uint32, inputStart int, nibble byte, acc []uint32, accStart int) {
 	tab := mulTable(nibble)
 	var lsbAsk uint32 = 0x11111111 //11111111
 
-	for i := 0; i < W; i++ {
+	mVectorLimbs := (mayo.m / 32) * 4
+
+	for i := 0; i < mVectorLimbs; i++ {
 		acc[accStart+i] ^= (in[i+inputStart]&lsbAsk)*(tab&0xff) ^
 			((in[i+inputStart]>>1)&lsbAsk)*((tab>>8)&0xf) ^
 			((in[i+inputStart]>>2)&lsbAsk)*((tab>>16)&0xf) ^
@@ -55,7 +63,7 @@ func mulTable(b byte) uint32 {
 
 func (mayo *Mayo) upper(matrix []uint32, matrixUpper []uint32, rows, cols int) {
 	entriesUsed := 0
-	u32PerIndex := mayo.m / 32 * 4
+	u32PerIndex := (mayo.m / 32) * 4
 
 	for r := 0; r < rows; r++ {
 		for c := r; c < cols; c++ {
@@ -93,6 +101,7 @@ func (mayo *Mayo) computeP3(P1 []uint32, O [][]byte, P2 []uint32) []byte {
 func (mayo *Mayo) computeL(P1 []uint32, O [][]byte, P2acc []uint32) []byte {
 	bsMatEntriesUsed := 0
 	mVectorLimbs := (mayo.m / 32) * 4
+
 	for r := 0; r < mayo.v; r++ {
 		for c := r; c < mayo.v; c++ {
 			if c == r {
@@ -101,8 +110,8 @@ func (mayo *Mayo) computeL(P1 []uint32, O [][]byte, P2acc []uint32) []byte {
 			}
 			bsMatStartIndex := bsMatEntriesUsed * mVectorLimbs
 			for k := 0; k < mayo.o; k++ {
-				vecMulAdd(P1, bsMatStartIndex, O[c][k], P2acc, (r*mayo.o+k)*mVectorLimbs)
-				vecMulAdd(P1, bsMatStartIndex, O[r][k], P2acc, (c*mayo.o+k)*mVectorLimbs)
+				mayo.vecMulAdd(P1, bsMatStartIndex, O[c][k], P2acc, (r*mayo.o+k)*mVectorLimbs)
+				mayo.vecMulAdd(P1, bsMatStartIndex, O[r][k], P2acc, (c*mayo.o+k)*mVectorLimbs)
 			}
 			bsMatEntriesUsed += 1
 		}

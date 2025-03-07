@@ -42,13 +42,13 @@ func CheckMayoKat(fileName string, securityLevel int, t *testing.T) {
 		}
 
 		if !bytes.Equal(esk, katData.sk) {
-			t.Error("Generated SK and KAT SK are not equal", katData.count, esk, katData.sk)
+			t.Error(fmt.Sprintf("Generated SK and KAT SK are not equal for iteration: %d:\n Got      %v\n Expected %v", katData.count, esk, katData.sk))
 			return
 		}
 
 		sig := mayo.APISign(katData.message, esk)
 		if !bytes.Equal(sig, katData.signature) {
-			t.Error(fmt.Sprintf("enerated signature and KAT signature are not equal for iteration: %d:\n Got      %v\n Expected %v", katData.count, sig, katData.signature))
+			t.Error(fmt.Sprintf("Generated signature and KAT signature are not equal for iteration: %d:\n Got      %v\n Expected %v", katData.count, sig, katData.signature))
 			return
 		}
 	}
