@@ -20,7 +20,7 @@ func (mayo *Mayo) CompactKeyGen() ([]byte, []byte, error) {
 	O := decodeMatrix(mayo.n-mayo.o, mayo.o, s[mayo.pkSeedBytes:mayo.pkSeedBytes+mayo.oBytes])
 
 	// Derive P_i^1 and P_i^2 from seekPk
-	P := rand.AES128CTR32(seedPk, mayo.p1Bytes+mayo.p2Bytes)
+	P := rand.AES128CTR64(seedPk, mayo.p1Bytes+mayo.p2Bytes)
 	P1 := P[:mayo.p1Bytes/8]                                // v x v upper triangular matrix
 	P2 := P[mayo.p1Bytes/8 : (mayo.p1Bytes+mayo.p2Bytes)/8] // v x o matrix
 
@@ -49,7 +49,7 @@ func (mayo *Mayo) ExpandSK(csk []byte) []byte {
 	O := decodeMatrix(mayo.n-mayo.o, mayo.o, oByteString)
 
 	// Derive P1 and P2 from seedPk
-	P := rand.AES128CTR32(seedPk, mayo.p1Bytes+mayo.p2Bytes)
+	P := rand.AES128CTR64(seedPk, mayo.p1Bytes+mayo.p2Bytes)
 	P1 := P[:mayo.p1Bytes/8]                                // v x v upper triangular matrix
 	P2 := P[mayo.p1Bytes/8 : (mayo.p1Bytes+mayo.p2Bytes)/8] // v x o matrix
 

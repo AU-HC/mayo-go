@@ -37,10 +37,10 @@ func AES128CTR(seed []byte, l int) []byte {
 	return dst
 }
 
-func AES128CTR32(seed []byte, l int) []uint64 {
-	// Ensure l is a multiple of 4 for uint32 conversion
-	if l%4 != 0 {
-		l += 4 - (l % 4) // Round up to nearest multiple of 4
+func AES128CTR64(seed []byte, l int) []uint64 {
+	// Ensure l is a multiple of 8 for uint64 conversion
+	if l%8 != 0 {
+		l += 8 - (l % 8) // Round up to nearest multiple of 8
 	}
 
 	var nonce [16]byte
