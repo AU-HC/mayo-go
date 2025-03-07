@@ -193,65 +193,29 @@ func (mayo *Mayo) Sign(esk, m []byte) []byte {
 // Verify (Algorithm 8) takes an expanded public key, message m, and signature sig and outputs an integer to indicate
 // if the signature is valid on m. Specifically if the signature is valid it will output 0, if invalid < 0.
 func (mayo *Mayo) Verify(epk, m, sig []byte) int {
-	// Decode epk
+	// Decode epk TODO: probably refactor this
 	P1ByteString := epk[:mayo.p1Bytes]
 	P2ByteString := epk[mayo.p1Bytes : mayo.p1Bytes+mayo.p2Bytes]
 	P3ByteString := epk[mayo.p1Bytes+mayo.p2Bytes : mayo.p1Bytes+mayo.p2Bytes+mayo.p3Bytes]
-	P1 := decodeMatrices(mayo.m, mayo.v, mayo.v, P1ByteString, true)
-	P2 := decodeMatrices(mayo.m, mayo.v, mayo.o, P2ByteString, false)
-	P3 := decodeMatrices(mayo.m, mayo.o, mayo.o, P3ByteString, true)
+	P1 := make([]uint64, mayo.p1Bytes/8)
+	P2 := make([]uint64, mayo.p2Bytes/8)
+	P3 := make([]uint64, mayo.p3Bytes/8)
+	bytesToUint64Slice(P1, P1ByteString)
+	bytesToUint64Slice(P2, P2ByteString)
+	bytesToUint64Slice(P3, P3ByteString)
 
 	// Decode sig
 	nkHalf := int(math.Ceil(float64(mayo.n) * float64(mayo.k) / 2.0))
 	salt := sig[nkHalf : nkHalf+mayo.saltBytes]
 	s := decodeVec(mayo.k*mayo.n, sig)
-	sVector := make([][]byte, mayo.k)
-	for i := 0; i < mayo.k; i++ {
-		sVector[i] = make([]byte, mayo.n)
-		copy(sVector[i], s[i*mayo.n:(i+1)*mayo.n])
-	}
 
 	// Hash the message and derive t
 	mDigest := rand.SHAKE256(mayo.digestBytes, m)
 	t := decodeVec(mayo.m, rand.SHAKE256(mayo.intTimesLogQ(mayo.m), mDigest, salt))
 
 	// Compute P^*(s)
-	P := mayo.calculateP(P1, P2, P3)
-	y := make([]byte, mayo.m+(mayo.k*(mayo.k+1)/2))
-	ell := 0
-	for i := 0; i < mayo.k; i++ {
-		// Calculate s_i P and s_i P s_i
-		siP := make([][]byte, mayo.m)
-		siPsi := make([]byte, mayo.m)
-		for a := 0; a < mayo.m; a++ {
-			siP[a] = mayo.field.VectorTransposedMatrixMul(sVector[i], P[a])
-			siPsi[a] = mayo.field.VecInnerProduct(siP[a], sVector[i])
-		}
-
-		for j := mayo.k - 1; j >= i; j-- {
-			u := make([]byte, mayo.m)
-			if i == j {
-				for a := 0; a < mayo.m; a++ {
-					u[a] = siPsi[a]
-				}
-			} else {
-				for a := 0; a < mayo.m; a++ {
-					u[a] = mayo.field.VecInnerProduct(siP[a], sVector[j]) ^
-						mayo.field.VecInnerProduct(mayo.field.VectorTransposedMatrixMul(sVector[j], P[a]), sVector[i])
-				}
-			}
-
-			// Calculate y = y - z^l * u
-			for d := 0; d < mayo.m; d++ {
-				y[d+ell] ^= u[d]
-			}
-
-			ell += 1
-		}
-	}
-
-	// Reduce y mod f(x)
-	y = mayo.reduceVecModF(y)
+	y := make([]byte, mayo.m+(mayo.k*(mayo.k+1)/2)) // TODO: Need extra space for reduction mod f(x)?
+	mayo.evalPublicMap(s, P1, P2, P3, y)
 
 	// Accept the signature if y = t
 	if bytes.Equal(y, t) {
@@ -328,39 +292,6 @@ func (mayo *Mayo) reduceAModF(A [][]byte) [][]byte {
 	A = A[:mayo.m]
 
 	return A
-}
-
-func (mayo *Mayo) calculateP(P1, P2, P3 [][][]byte) [][][]byte {
-	P := make([][][]byte, mayo.m)
-	for i := 0; i < mayo.m; i++ {
-		P[i] = make([][]byte, mayo.n)
-		for j := 0; j < mayo.n; j++ {
-			P[i][j] = make([]byte, mayo.n)
-		}
-	}
-
-	for i := 0; i < mayo.m; i++ {
-		// Set P1
-		for row := 0; row < mayo.v; row++ {
-			for column := 0; column < mayo.v; column++ {
-				P[i][row][column] = P1[i][row][column]
-			}
-		}
-		// Set P2
-		for row := 0; row < mayo.v; row++ {
-			for column := 0; column < mayo.o; column++ {
-				P[i][row][column+mayo.v] = P2[i][row][column]
-			}
-		}
-		// Set P3
-		for row := 0; row < mayo.o; row++ {
-			for column := 0; column < mayo.o; column++ {
-				P[i][row+mayo.v][column+mayo.v] = P3[i][row][column]
-			}
-		}
-	}
-
-	return P
 }
 
 func (mayo *Mayo) echelonForm(B [][]byte) [][]byte {

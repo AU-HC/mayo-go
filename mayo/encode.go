@@ -147,3 +147,10 @@ func uint64SliceToBytes(dst []byte, src []uint64) {
 		dst = dst[8:]
 	}
 }
+
+func bytesToUint64Slice(dst []uint64, src []byte) {
+	for i := range dst {
+		dst[i] = binary.LittleEndian.Uint64(src)
+		src = src[8:]
+	}
+}
