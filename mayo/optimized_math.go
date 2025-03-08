@@ -1,5 +1,7 @@
 package mayo
 
+import "unsafe"
+
 // Note that these optimizations are based on the spec C implementation: https://github.com/PQCMayo/MAYO-C/
 
 func (mayo *Mayo) matMulAdd(bsMat []uint64, mat [][]byte, acc []uint64, bsMatRows, bsMatCols, matCols int, isUpperTriangular int) {
@@ -125,6 +127,48 @@ func (mayo *Mayo) computeL(P1 []uint64, O [][]byte, P2acc []uint64) []byte {
 	return lBytes
 }
 
+func (mayo *Mayo) vecMulAddXInv(in []uint64, inStart int, acc []uint64, accStart int) {
+	maskLsb := uint64(0x1111111111111111)
+	for i := 0; i < 4; i++ { // TODO: fix m vector limbs
+		t := in[i+inStart] & maskLsb
+		acc[i+accStart] ^= ((in[i] ^ t) >> 1) ^ (t * 9)
+	}
+}
+
+func (mayo *Mayo) vecMulAddX(in []uint64, inStart int, acc []uint64, accStart int) {
+	maskMsb := uint64(0x8888888888888888)
+	for i := 0; i < 4; i++ { // TODO: fix m vector limbs
+		t := in[i+inStart] & maskMsb
+		acc[i+accStart] ^= ((in[i] ^ t) << 1) ^ ((t >> 3) * 3)
+	}
+}
+
+func (mayo *Mayo) vecCopy(in []uint64, inStart int, out []uint64, outStart int) {
+	mVectorLimbs := 4 // TODO: fix m vector limbs
+	for i := 0; i < mVectorLimbs; i++ {
+		out[i+outStart] = in[i+inStart]
+	}
+}
+
+func (mayo *Mayo) vecMultiplyBins(bins []uint64, binsStartIndex int, out []uint64, outStartIndex int) {
+	mVectorLimbs := 4 // TODO: fix
+	mayo.vecMulAddXInv(bins, binsStartIndex+5*mVectorLimbs, bins, binsStartIndex+10*mVectorLimbs)
+	mayo.vecMulAddX(bins, binsStartIndex+11*mVectorLimbs, bins, binsStartIndex+12*mVectorLimbs)
+	mayo.vecMulAddXInv(bins, binsStartIndex+10*mVectorLimbs, bins, binsStartIndex+7*mVectorLimbs)
+	mayo.vecMulAddX(bins, binsStartIndex+12*mVectorLimbs, bins, binsStartIndex+6*mVectorLimbs)
+	mayo.vecMulAddXInv(bins, binsStartIndex+7*mVectorLimbs, bins, binsStartIndex+14*mVectorLimbs)
+	mayo.vecMulAddX(bins, binsStartIndex+6*mVectorLimbs, bins, binsStartIndex+3*mVectorLimbs)
+	mayo.vecMulAddXInv(bins, binsStartIndex+14*mVectorLimbs, bins, binsStartIndex+15*mVectorLimbs)
+	mayo.vecMulAddX(bins, binsStartIndex+3*mVectorLimbs, bins, binsStartIndex+8*mVectorLimbs)
+	mayo.vecMulAddXInv(bins, binsStartIndex+15*mVectorLimbs, bins, binsStartIndex+13*mVectorLimbs)
+	mayo.vecMulAddX(bins, binsStartIndex+8*mVectorLimbs, bins, binsStartIndex+4*mVectorLimbs)
+	mayo.vecMulAddXInv(bins, binsStartIndex+13*mVectorLimbs, bins, binsStartIndex+9*mVectorLimbs)
+	mayo.vecMulAddX(bins, binsStartIndex+4*mVectorLimbs, bins, binsStartIndex+2*mVectorLimbs)
+	mayo.vecMulAddXInv(bins, binsStartIndex+9*mVectorLimbs, bins, binsStartIndex+1*mVectorLimbs)
+	mayo.vecMulAddX(bins, binsStartIndex+2*mVectorLimbs, bins, binsStartIndex+1*mVectorLimbs)
+	mayo.vecCopy(bins, binsStartIndex, out, outStartIndex)
+}
+
 func (mayo *Mayo) calculatePS(P1 []uint64, P2 []uint64, P3 []uint64, s []byte, m int, v int, o int, k int, PS []uint64) {
 	n := o + v
 	mVectorLimbs := (mayo.m + 15) / 16
@@ -163,8 +207,9 @@ func (mayo *Mayo) calculatePS(P1 []uint64, P2 []uint64, P3 []uint64, s []byte, m
 	}
 
 	for i := 0; i < n*k; i++ {
-		// TODO: fix index
-		//vecMultiplyBins(acc, accStartIndex, PS, bsMatStartIndex)
+		bsMatStartIndex := i * mVectorLimbs
+		accStartIndex := i * 16 * mVectorLimbs
+		mayo.vecMultiplyBins(acc, accStartIndex, PS, bsMatStartIndex)
 	}
 }
 
@@ -176,15 +221,16 @@ func (mayo *Mayo) calculateSPS(PS []uint64, s []byte, m int, k int, n int, SPS [
 		for j := 0; j < n; j++ {
 			for col := 0; col < k; col++ {
 				bsMatStartIndex := (j*k + col) * mVectorLimbs
-				accStartIndex := ((row*k+col)*16 + int(s[row*n+j])) * mVectorLimbs // TODO: typecast to signed int
+				accStartIndex := ((row*k+col)*16 + int(s[row*n+j])) * mVectorLimbs
 				mayo.vecAdd(PS, bsMatStartIndex, acc, accStartIndex)
 			}
 		}
 	}
 
-	for i := 0; i < n*k; i++ {
-		// TODO: fix index
-		//vecMultiplyBins(acc, accStartIndex, PS, bsMatStartIndex)
+	for i := 0; i < k*k; i++ {
+		bsMatStartIndex := i * mVectorLimbs
+		accStartIndex := i * 16 * mVectorLimbs
+		mayo.vecMultiplyBins(acc, accStartIndex, SPS, bsMatStartIndex)
 	}
 }
 
@@ -194,8 +240,53 @@ func (mayo *Mayo) calculatePsSps(P1 []uint64, P2 []uint64, P3 []uint64, s []byte
 	mayo.calculateSPS(PS, s, mayo.m, mayo.k, mayo.n, SPS)
 }
 
-func (mayo *Mayo) computeRhs(SPS []uint64, zero, y []byte) {
+func (mayo *Mayo) computeRhs(VPV []uint64, t, y []byte) {
+	topPos := ((mayo.m - 1) % 16) * 4
+	mVectorLimbs := 4 // TODO: 4 = mVectorLimbs
 
+	// TODO: zero out fails of m_vectors if necessary (not needed for mayo2 as 64 % 16 == 0)
+	// here
+	// here
+	// here
+
+	temp := make([]uint64, mVectorLimbs)
+	tempBytes := unsafe.Slice((*byte)(unsafe.Pointer(&temp[0])), len(temp)*8)
+	for i := mayo.k; i >= 0; i-- {
+		for j := i; j < mayo.k; j++ {
+			// multiply
+			top := byte((temp[mVectorLimbs-1] >> topPos) % 16)
+			temp[mVectorLimbs-1] <<= 4
+			for k := mVectorLimbs - 2; k >= 0; k-- {
+				temp[k+1] ^= temp[k] >> 60
+				temp[k] <<= 4
+			}
+
+			// reduce
+			for jj := 0; jj < len(mayo.tailF); jj++ {
+				if jj%2 == 0 {
+					tempBytes[jj/2] ^= mayo.field.Gf16Mul(top, mayo.tailF[jj])
+				} else {
+					tempBytes[jj/2] ^= mayo.field.Gf16Mul(top, mayo.tailF[jj]) << 4
+				}
+			}
+
+			// extract
+			for k := 0; k < mVectorLimbs; k++ {
+				var ij uint64
+				if i == j {
+					ij = 1
+				}
+
+				temp[k] ^= VPV[(i*mayo.k+j)*mVectorLimbs+k] ^ ((ij) * VPV[(j*mayo.k+i)*mVectorLimbs+k])
+			}
+		}
+	}
+
+	// compute y
+	for i := 0; i < mayo.m; i += 2 {
+		y[i] = t[i] ^ (tempBytes[i/2] & 0xF)
+		y[i+1] = t[i+1] ^ (tempBytes[i/2] >> 4)
+	}
 }
 
 func (mayo *Mayo) evalPublicMap(s []byte, P1 []uint64, P2 []uint64, P3 []uint64, eval []byte) {
