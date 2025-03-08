@@ -273,7 +273,7 @@ func (mayo *Mayo) computeRhs(VPV []uint64, t, y []byte) {
 			// extract
 			for k := 0; k < mVectorLimbs; k++ {
 				var ij uint64
-				if i == j {
+				if i != j {
 					ij = 1
 				}
 
