@@ -166,7 +166,7 @@ func (mayo *Mayo) vecMultiplyBins(bins []uint64, binsStartIndex int, out []uint6
 	mayo.vecMulAddX(bins, binsStartIndex+4*mVectorLimbs, bins, binsStartIndex+2*mVectorLimbs)
 	mayo.vecMulAddXInv(bins, binsStartIndex+9*mVectorLimbs, bins, binsStartIndex+1*mVectorLimbs)
 	mayo.vecMulAddX(bins, binsStartIndex+2*mVectorLimbs, bins, binsStartIndex+1*mVectorLimbs)
-	mayo.vecCopy(bins, binsStartIndex, out, outStartIndex)
+	mayo.vecCopy(bins, binsStartIndex+mVectorLimbs, out, outStartIndex)
 }
 
 func (mayo *Mayo) calculatePS(P1 []uint64, P2 []uint64, P3 []uint64, s []byte, m int, v int, o int, k int, PS []uint64) {

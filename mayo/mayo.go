@@ -216,6 +216,7 @@ func (mayo *Mayo) Verify(epk, m, sig []byte) int {
 	// Compute P^*(s)
 	y := make([]byte, 2*mayo.m) // TODO: Need extra space for reduction mod f(x)?
 	mayo.evalPublicMap(s, P1, P2, P3, y)
+	y = y[:mayo.m]
 
 	// Accept the signature if y = t
 	if bytes.Equal(y, t) {
