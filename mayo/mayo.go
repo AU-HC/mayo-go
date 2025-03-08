@@ -214,7 +214,7 @@ func (mayo *Mayo) Verify(epk, m, sig []byte) int {
 	t := decodeVec(mayo.m, rand.SHAKE256(mayo.intTimesLogQ(mayo.m), mDigest, salt))
 
 	// Compute P^*(s)
-	y := make([]byte, 2*mayo.m) // TODO: Need extra space for reduction mod f(x)?
+	y := make([]byte, 2*mayo.m)
 	mayo.evalPublicMap(s, P1, P2, P3, y)
 	y = y[:mayo.m]
 

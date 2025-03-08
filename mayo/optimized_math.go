@@ -131,7 +131,7 @@ func (mayo *Mayo) vecMulAddXInv(in []uint64, inStart int, acc []uint64, accStart
 	maskLsb := uint64(0x1111111111111111)
 	for i := 0; i < 4; i++ { // TODO: fix m vector limbs
 		t := in[i+inStart] & maskLsb
-		acc[i+accStart] ^= ((in[i] ^ t) >> 1) ^ (t * 9)
+		acc[i+accStart] ^= ((in[i+inStart] ^ t) >> 1) ^ (t * 9)
 	}
 }
 
@@ -139,7 +139,7 @@ func (mayo *Mayo) vecMulAddX(in []uint64, inStart int, acc []uint64, accStart in
 	maskMsb := uint64(0x8888888888888888)
 	for i := 0; i < 4; i++ { // TODO: fix m vector limbs
 		t := in[i+inStart] & maskMsb
-		acc[i+accStart] ^= ((in[i] ^ t) << 1) ^ ((t >> 3) * 3)
+		acc[i+accStart] ^= ((in[i+inStart] ^ t) << 1) ^ ((t >> 3) * 3)
 	}
 }
 
@@ -251,7 +251,7 @@ func (mayo *Mayo) computeRhs(VPV []uint64, t, y []byte) {
 
 	temp := make([]uint64, mVectorLimbs)
 	tempBytes := unsafe.Slice((*byte)(unsafe.Pointer(&temp[0])), len(temp)*8)
-	for i := mayo.k; i >= 0; i-- {
+	for i := mayo.k - 1; i >= 0; i-- {
 		for j := i; j < mayo.k; j++ {
 			// multiply
 			top := byte((temp[mVectorLimbs-1] >> topPos) % 16)
