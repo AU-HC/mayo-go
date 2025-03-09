@@ -1,6 +1,9 @@
 package mayo
 
-import "unsafe"
+import (
+	"math"
+	"unsafe"
+)
 
 // Note that these optimizations are based on the spec C implementation: https://github.com/PQCMayo/MAYO-C/
 
@@ -328,12 +331,50 @@ func (mayo *Mayo) computeMAndVpv(v [][]byte, L, P1, mTemp, A []uint64) {
 	mayo.mulAddMatXMMat(v, Pv, A, mayo.k) // TODO: Cast A to uint64* type
 }
 
-func (mayo *Mayo) computeA(mTemp []uint64, A []byte) {
-	MayoMOver8 := (mayo.m + 7) / 8
-	ANew := make([]uint64, (((mayo.o*mayo.k+15)/16)*16)*MayoMOver8)
+func (mayo *Mayo) Transpose16x16Nibbles(M []uint64, c int) {
+	evenNibbles := uint64(0x0f0f0f0f0f0f0f0f)
+	evenBytes := uint64(0x00ff00ff00ff00ff)
+	even2bytes := uint64(0x0000ffff0000ffff)
+	evenHalf := uint64(0x00000000ffffffff)
+
+	for i := 0; i < 16; i += 2 {
+		t := ((M[c+i] >> 4) ^ M[c+i+1]) & evenNibbles
+		M[c+i] ^= t << 4
+		M[c+i+1] ^= t
+	}
+
+	for i := 0; i < 16; i += 4 {
+		t0 := ((M[c+i] >> 8) ^ M[c+i+2]) & evenBytes
+		t1 := ((M[c+i+1] >> 8) ^ M[c+i+3]) & evenBytes
+		M[c+i] ^= t0 << 8
+		M[c+i+1] ^= t1 << 8
+		M[c+i+2] ^= t0
+		M[c+i+3] ^= t1
+	}
+
+	for i := 0; i < 4; i++ {
+		t0 := ((M[c+i] >> 16) ^ M[c+i+4]) & even2bytes
+		t1 := ((M[c+i+8] >> 16) ^ M[c+i+12]) & even2bytes
+
+		M[c+i] ^= t0 << 16
+		M[c+i+8] ^= t1 << 16
+		M[c+i+4] ^= t0
+		M[c+i+12] ^= t1
+	}
+
+	for i := 0; i < 8; i++ {
+		t := ((M[c+i] >> 32) ^ M[c+i+8]) & evenHalf
+		M[c+i] ^= t << 32
+		M[c+i+8] ^= t
+	}
+}
+
+func (mayo *Mayo) computeA(mTemp []uint64, AOut []byte) {
+	mayoMOver8 := (mayo.m + 7) / 8
 	bitsToShift := 0
 	wordsToShift := 0
 	AWidth := ((mayo.o*mayo.k + 15) / 16) * 16
+	A := make([]uint64, (((mayo.o*mayo.k+15)/16)*16)*mayoMOver8)
 
 	// TODO: zero out fails of m_vectors if necessary (not needed for mayo2 as 64 % 16 == 0)
 	// here
@@ -342,11 +383,68 @@ func (mayo *Mayo) computeA(mTemp []uint64, A []byte) {
 
 	for i := 0; i < mayo.k; i++ {
 		for j := mayo.k - 1; j >= i; j-- {
-			Mj := mTemp + j*4*mayo.o //TODO: mVectorLimbs = 4
 			for c := 0; c < mayo.o; c++ {
 				for k := 0; k < 4; k++ { //TODO: mVectorLimbs = 4
-					ANew[mayo.o*j+c+(k+wordsToShift)*AWidth] ^= Mj[k+c*4] << bitsToShift
+					A[mayo.o*i+c+(k+wordsToShift)*AWidth] ^= mTemp[j*4*mayo.o+k+c*4] << bitsToShift //TODO: mVectorLimbs = 4
+					if bitsToShift > 0 {
+						A[mayo.o*i+c+(k+wordsToShift+1)*AWidth] ^= mTemp[j*4*mayo.o+k+c*4] >> (64 - bitsToShift) //TODO: mVectorLimbs = 4
+					}
 				}
+			}
+
+			if i != j {
+				for c := 0; c < mayo.o; c++ {
+					for k := 0; k < 4; k++ { //TODO: mVectorLimbs = 4
+						A[mayo.o*j+c+(k+wordsToShift)*AWidth] ^= mTemp[i*4*mayo.o+k+c*4] << bitsToShift //TODO: mVectorLimbs = 4
+						if bitsToShift > 0 {
+							A[mayo.o*j+c+(k+wordsToShift+1)*AWidth] ^= mTemp[i*4*mayo.o+k+c*4] >> (64 - bitsToShift) //TODO: mVectorLimbs = 4
+						}
+					}
+				}
+			}
+
+			bitsToShift += 4
+			if bitsToShift == 64 {
+				bitsToShift = 0
+				wordsToShift++
+			}
+		}
+	}
+
+	for c := 0; c < AWidth*((mayo.m+(mayo.k+1)*mayo.k/2+15)/16); c += 16 {
+		mayo.Transpose16x16Nibbles(A, c)
+	}
+
+	tab := make([]byte, len(mayo.tailF)*4)
+	for i := 0; i < len(mayo.tailF); i++ {
+		tab[4*i] = mayo.field.Gf16Mul(mayo.tailF[i], 1)
+		tab[4*i+1] = mayo.field.Gf16Mul(mayo.tailF[i], 2)
+		tab[4*i+2] = mayo.field.Gf16Mul(mayo.tailF[i], 4)
+		tab[4*i+3] = mayo.field.Gf16Mul(mayo.tailF[i], 8)
+	}
+
+	lowBitInNibble := uint64(0x1111111111111111)
+	for c := 0; c < AWidth; c++ {
+		for r := mayo.m; r < mayo.m+(mayo.k+1)*mayo.k/2; r++ {
+			pos := (r/16)*AWidth + c + (r % 16)
+			t0 := A[pos] & lowBitInNibble
+			t1 := (A[pos] >> 1) & lowBitInNibble
+			t2 := (A[pos] >> 2) & lowBitInNibble
+			t3 := (A[pos] >> 3) & lowBitInNibble
+			for t := 0; t < len(mayo.tailF); t++ {
+				A[((r+t-mayo.m)/16)*AWidth+c+((r+t-mayo.m)%16)] ^= t0*uint64(tab[4*t+0]) ^ t1*uint64(tab[4*t+1]) ^ t2*uint64(tab[4*t+2]) ^ t3*uint64(tab[4*t+3])
+			}
+		}
+	}
+
+	aCols := mayo.k*mayo.o + 1
+	aBytes := make([]byte, len(A)*8)
+	uint64SliceToBytes(aBytes, A)
+	for r := 0; r < mayo.m; r += 16 {
+		for c := 0; c < aCols-1; c += 16 {
+			for i := 0; i+r < mayo.m; i++ {
+				col := decodeVec(int(math.Min(16, float64(aCols-1-c))), aBytes[:r*AWidth/16+c+i])
+				copy(AOut[aCols*(r+i)+c:aCols*(r+(i+1))+c], col[:]) // TODO Check this
 			}
 		}
 	}
