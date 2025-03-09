@@ -124,8 +124,8 @@ func (mayo *Mayo) Sign(esk, m []byte) []byte {
 			A[(1+i)*(mayo.k*mayo.o+1)-1] = 0
 		}
 
-		aCols := 0
-		hasSolution := mayo.sampleSolution(A, y, r, x, mayo.k, mayo.o, mayo.m, aCols)
+		aCols := 0 // TODO: figure out
+		hasSolution := mayo.sampleSolutionOpti(A, y, r, x, mayo.k, mayo.o, mayo.m, aCols)
 
 		if hasSolution {
 			break
@@ -219,32 +219,6 @@ func (mayo *Mayo) intTimesLogQ(ints ...int) int {
 	return int(math.Ceil(float64(product) * math.Log2(float64(mayo.q)) / 8.0))
 }
 
-func (mayo *Mayo) reduceVecModF(y []byte) []byte {
-	for i := mayo.m + mayo.shifts - 1; i >= mayo.m; i-- {
-		for shift, coefficient := range mayo.tailF {
-			y[i-mayo.m+shift] ^= mayo.field.Gf16Mul(y[i], coefficient)
-		}
-		y[i] = 0
-	}
-	y = y[:mayo.m]
-
-	return y
-}
-
-func (mayo *Mayo) reduceAModF(A [][]byte) [][]byte {
-	for row := mayo.m + mayo.shifts - 1; row >= mayo.m; row-- {
-		for column := 0; column < mayo.k*mayo.o; column++ {
-			for shift := 0; shift < len(mayo.tailF); shift++ {
-				A[row-mayo.m+shift][column] ^= mayo.field.Gf16Mul(A[row][column], mayo.tailF[shift])
-			}
-			A[row][column] = 0
-		}
-	}
-	A = A[:mayo.m]
-
-	return A
-}
-
 func (mayo *Mayo) echelonForm(B [][]byte) [][]byte {
 	pivotColumn := 0
 	pivotRow := 0
@@ -280,39 +254,113 @@ func (mayo *Mayo) echelonForm(B [][]byte) [][]byte {
 	return B
 }
 
-func (mayo *Mayo) sampleSolution(A [][]byte, y []byte, R []byte) ([]byte, bool) {
-	// Randomize the system using r
-	x := make([]byte, len(R))
-	copy(x, R)
+func (mayo *Mayo) lincomb(a []byte, b []byte, aCounter, j, n, m int) byte {
+	var ret byte
+	bCounter := 0
+	for i := 0; i < n; i++ {
+		bCounter += m
+		ret = mayo.field.Gf16Mul(a[aCounter+i], b[j+bCounter]) ^ ret
+	}
+	return ret
+}
 
-	yMatrix := field.AddVec(y, mayo.field.MatrixVectorMul(A, R))
+func (mayo *Mayo) matMul(a []byte, b []byte, c []byte, colRowAb, rowA, colB int) {
+	cCounter := 0
+	aCounter := 0
+	for i := 0; i < rowA; i++ {
+		aCounter += colRowAb
+		for j := 0; j < colB; j++ {
+			cCounter++
+			c[cCounter] = mayo.lincomb(a, b, aCounter, j, colRowAb, colB)
+		}
+	}
+}
 
-	// Put (A y) in echelon form with leading 1's
-	AyMatrix := appendVecToMatrix(A, yMatrix)
-	AyMatrix = mayo.echelonForm(AyMatrix)
-	A, y = extractVecFromMatrix(AyMatrix)
+func (mayo *Mayo) echelonForm2(A []byte, nRows int, nCols int) {
+	rowLen := (nCols + 15) / 16
 
-	// Check if A has rank m
-	zeroVector := make([]byte, mayo.k*mayo.o)
-	if bytes.Equal(A[mayo.m-1], zeroVector) {
-		return nil, false
+	for i := 0; i < nRows; i++ {
+		mayo.ef_pack_m_vec(A, i*nCols, packedA, i*rowLen, nCols)
+	}
+}
+
+func (mayo *Mayo) sampleSolutionOpti(A []byte, y, r, x []byte, k, o, m, aCols int) bool {
+	// x <- r
+	copy(x, r)
+
+	// compute Ar;
+	Ar := make([]byte, m)
+	for i := 0; i < m; i++ {
+		A[k*o+i*(k*o+1)] = 0 // clear last col of A
+	}
+	mayo.matMul(A, r, Ar, k*o+1, m, 1)
+
+	// move y - Ar to last column of matrix A
+	for i := 0; i < m; i++ {
+		A[k*o+i*(k*o+1)] = y[i] ^ Ar[i]
 	}
 
-	// Back-substitution
-	for r := mayo.m - 1; r >= 0; r-- {
-		// Let c be the index of first non-zero element of A[r,:]
-		for c := 0; c < len(A[r]); c++ {
-			if A[r][c] != 0 {
-				x[c] ^= y[r]
+	mayo.echelonForm2(A, m, k*o+1)
 
-				for i := 0; i < mayo.m; i++ {
-					y[i] ^= mayo.field.Gf16Mul(y[r], A[i][c])
-				}
+	// check if last row of A (excluding the last entry of y) is zero
+	var fullRank byte
+	for i := 0; i < aCols-1; i++ {
+		fullRank |= A[(m-1)*aCols+i]
+	}
 
-				break
+	if fullRank == 0 {
+		return false
+	}
+
+	for row := m - 1; row >= 0; row-- {
+		var finished byte
+		colUpperBound := int(math.Min(float64(row+(32/(m-row))), float64(k*o)))
+
+		for col := row; col <= colUpperBound; col++ {
+			correctColumn := mayo.ct_compare_8(A[row*aCols+col], 0) & finished // TODO: implement
+
+			u := correctColumn & A[row*aCols+aCols-1]
+			x[col] ^= u
+
+			for i := 0; i < row; i += 8 {
+				tmp := (uint64(A[i*aCols+col]) << 0) ^
+					(uint64(A[(i+1)*aCols+col]) << 8) ^
+					(uint64(A[(i+2)*aCols+col]) << 16) ^
+					(uint64(A[(i+3)*aCols+col]) << 24) ^
+					(uint64(A[(i+4)*aCols+col]) << 32) ^
+					(uint64(A[(i+5)*aCols+col]) << 40) ^
+					(uint64(A[(i+6)*aCols+col]) << 48) ^
+					(uint64(A[(i+7)*aCols+col]) << 56)
+
+				tmp = mulFx8(u, tmp)
+
+				A[i*aCols+aCols-1] ^= byte((tmp) & 0xf)
+				A[(i+1)*aCols+aCols-1] ^= byte((tmp >> 8) & 0xf)
+				A[(i+2)*aCols+aCols-1] ^= byte((tmp >> 16) & 0xf)
+				A[(i+3)*aCols+aCols-1] ^= byte((tmp >> 24) & 0xf)
+				A[(i+4)*aCols+aCols-1] ^= byte((tmp >> 32) & 0xf)
+				A[(i+5)*aCols+aCols-1] ^= byte((tmp >> 40) & 0xf)
+				A[(i+6)*aCols+aCols-1] ^= byte((tmp >> 48) & 0xf)
+				A[(i+7)*aCols+aCols-1] ^= byte((tmp >> 56) & 0xf)
 			}
+
+			finished = finished | correctColumn
 		}
 	}
 
-	return x, true
+	return true
+}
+
+func mulFx8(a byte, b uint64) uint64 { // TODO: Move this
+	// carry-less multiply
+	var p uint64
+	p = uint64(a&1) * b
+	p ^= uint64(a&2) * b
+	p ^= uint64(a&4) * b
+	p ^= uint64(a&8) * b
+
+	// reduce mod x^4 + x + 1
+	topP := p & 0xf0f0f0f0f0f0f0f0
+	out := (p ^ (topP >> 4) ^ (topP >> 3)) & 0x0f0f0f0f0f0f0f0f
+	return out
 }
