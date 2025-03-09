@@ -85,8 +85,12 @@ func (mayo *Mayo) Sign(esk, m []byte) []byte {
 	// Decode esk
 	seedSk := esk[:mayo.skSeedBytes]
 	O := decodeMatrix(mayo.v, mayo.o, esk[mayo.skSeedBytes:mayo.skSeedBytes+mayo.oBytes])
-	P1 := decodeMatrices(mayo.m, mayo.v, mayo.v, esk[mayo.skSeedBytes+mayo.oBytes:mayo.skSeedBytes+mayo.oBytes+mayo.p1Bytes], true)
-	L := decodeMatrices(mayo.m, mayo.v, mayo.o, esk[mayo.skSeedBytes+mayo.oBytes+mayo.p1Bytes:mayo.eskBytes], false)
+	P1Bytes := esk[mayo.skSeedBytes+mayo.oBytes : mayo.skSeedBytes+mayo.oBytes+mayo.p1Bytes]
+	LBytes := esk[mayo.skSeedBytes+mayo.oBytes+mayo.p1Bytes : mayo.eskBytes]
+	P1 := make([]uint64, mayo.p1Bytes/8)
+	L := make([]uint64, mayo.lBytes/8)
+	bytesToUint64Slice(P1, P1Bytes)
+	bytesToUint64Slice(L, LBytes)
 
 	// Hash the message, and derive salt and t
 	mDigest := rand.SHAKE256(mayo.digestBytes, m)
@@ -94,9 +98,10 @@ func (mayo *Mayo) Sign(esk, m []byte) []byte {
 	salt := rand.SHAKE256(mayo.saltBytes, mDigest, R, seedSk)
 	t := decodeVec(mayo.m, rand.SHAKE256(mayo.intTimesLogQ(mayo.m), mDigest, salt))
 
+	mTemp := make([]uint64, mayo.k*mayo.o*4) // TODO: mVecLimbs = 4
+
 	// Attempt to find a preimage for t
 	var x []byte
-	var hasSolution bool
 	v := make([][]byte, mayo.k)
 	for ctr := 0; ctr < 256; ctr++ {
 		// Derive v_i and r
@@ -107,85 +112,30 @@ func (mayo *Mayo) Sign(esk, m []byte) []byte {
 		r := decodeVec(mayo.k*mayo.o, V[mayo.k*mayo.vBytes:mayo.k*mayo.vBytes+mayo.intTimesLogQ(mayo.k, mayo.o)])
 
 		// Build linear system Ax = y
-		A := generateZeroMatrix(mayo.m+mayo.shifts, mayo.k*mayo.o)
-		y := make([]byte, mayo.m+mayo.shifts)
-		copy(y[:mayo.m], t)
-		ell := 0
-		M := make([][][]byte, mayo.k)
-		for i := 0; i < mayo.k; i++ {
-			mi := generateZeroMatrix(mayo.m, mayo.o)
+		A := make([]byte, 0) // TODO: length
+		y := make([]byte, mayo.m)
 
-			for j := 0; j < mayo.m; j++ {
-				mi[j] = mayo.field.MultiplyMatrices(transposeVector(v[i]), L[j])[0]
-			}
+		// Compute M and vPv
+		mayo.computeMAndVpv(v, L, P1, mTemp, A)
+		mayo.computeRhs(A, t, y)
+		mayo.computeA(mTemp, A) // TODO
 
-			M[i] = mi
+		for i := 0; i < mayo.m; i++ {
+			A[(1+i)*(mayo.k*mayo.o+1)-1] = 0
 		}
 
-		for i := 0; i < mayo.k; i++ {
-			// Calculate v_i P1 and v_i P1 v_i
-			viP := make([][]byte, mayo.m)
-			viPvi := make([]byte, mayo.m)
-			for a := 0; a < mayo.m; a++ {
-				viP[a] = mayo.field.VectorTransposedMatrixMul(v[i], P1[a])
-				viPvi[a] = mayo.field.VecInnerProduct(viP[a], v[i])
-			}
+		aCols := 0
+		hasSolution := mayo.sampleSolution(A, y, r, x, mayo.k, mayo.o, mayo.m, aCols)
 
-			for j := mayo.k - 1; j >= i; j-- {
-				u := make([]byte, mayo.m)
-				if i == j {
-					for a := 0; a < mayo.m; a++ {
-						u[a] = viPvi[a]
-					}
-				} else {
-					for a := 0; a < mayo.m; a++ {
-						u[a] = mayo.field.VecInnerProduct(viP[a], v[j]) ^
-							mayo.field.VecInnerProduct(mayo.field.VectorTransposedMatrixMul(v[j], P1[a]), v[i])
-					}
-				}
-
-				// Calculate y = y - z^l * u
-				for d := 0; d < mayo.m; d++ {
-					y[d+ell] ^= u[d]
-				}
-
-				for row := 0; row < mayo.m; row++ {
-					for column := i * mayo.o; column < (i+1)*mayo.o; column++ {
-						A[row+ell][column] ^= M[j][row][column%mayo.o]
-					}
-
-					if i != j {
-						for column := j * mayo.o; column < (j+1)*mayo.o; column++ {
-							A[row+ell][column] ^= M[i][row][column%mayo.o]
-						}
-					}
-				}
-
-				ell += 1
-			}
-		}
-
-		// Reduce y and the columns of A mod f(x)
-		y = mayo.reduceVecModF(y)
-		A = mayo.reduceAModF(A)
-
-		// Try to solve the system
-		x, hasSolution = mayo.sampleSolution(A, y, r)
 		if hasSolution {
 			break
 		}
 	}
 
 	// Finish and output the signature
-	var s []byte
-	for i := 0; i < mayo.k; i++ {
-		xIndexed := x[i*mayo.o : (i+1)*mayo.o]
-		OX := field.AddVec(v[i], mayo.field.MatrixVectorMul(O, xIndexed))
-		s = append(s, OX...)
-		s = append(s, xIndexed...)
-	}
 	var sig []byte
-	sig = append(sig, encodeVec(s)...)
+	sig = append(sig, t...)
+	sig = append(sig, x...)
 	sig = append(sig, salt...)
 	return sig
 }
@@ -216,7 +166,7 @@ func (mayo *Mayo) Verify(epk, m, sig []byte) int {
 	// Compute P^*(s)
 	y := make([]byte, 2*mayo.m)
 	mayo.evalPublicMap(s, P1, P2, P3, y)
-	y = y[:mayo.m]
+	y = y[:mayo.m] // TODO: handle this differently?
 
 	// Accept the signature if y = t
 	if bytes.Equal(y, t) {

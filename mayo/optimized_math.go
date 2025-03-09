@@ -295,3 +295,59 @@ func (mayo *Mayo) evalPublicMap(s []byte, P1 []uint64, P2 []uint64, P3 []uint64,
 	zero := make([]byte, mayo.m)
 	mayo.computeRhs(SPS, zero, eval)
 }
+
+func (mayo *Mayo) mulAddMatXMMat(v [][]byte, L []uint64, mTemp []uint64, bsMatCols int) {
+	for r := 0; r < mayo.k; r++ {
+		for c := 0; c < mayo.v; c++ {
+			for k := 0; k < bsMatCols; k++ {
+				mayo.vecMulAdd(L, 4*(c*mayo.o+k), v[r][mayo.v+c], mTemp, 4*(r*mayo.o+k)) // TODO: mVectorLimbs = 4 also are we indexing correct in v
+			}
+		}
+	}
+}
+
+func (mayo *Mayo) P1MulVt(P1 []uint64, v [][]byte, Pv []uint64) {
+	bsMatEntriesUsed := 0
+	for r := 0; r < mayo.v; r++ {
+		for c := 1 * r; c < mayo.v; c++ {
+			for k := 0; k < mayo.k; k++ {
+				mayo.vecMulAdd(P1, 4*bsMatEntriesUsed, v[k][mayo.v+c], Pv, 4*(r*mayo.k+k)) // TODO: mVectorLimbs = 4 also are we indexing correct in v
+			}
+			bsMatEntriesUsed++
+		}
+	}
+}
+
+func (mayo *Mayo) computeMAndVpv(v [][]byte, L, P1, mTemp, A []uint64) {
+	// Compute VL
+	mayo.mulAddMatXMMat(v, L, mTemp, mayo.o)
+
+	// Compute VP1V
+	Pv := make([]uint64, mayo.v*mayo.k*4) // TODO: 4 = mVectorLimbs
+	mayo.P1MulVt(P1, v, Pv)
+	mayo.mulAddMatXMMat(v, Pv, A, mayo.k) // TODO: Cast A to uint64* type
+}
+
+func (mayo *Mayo) computeA(mTemp []uint64, A []byte) {
+	MayoMOver8 := (mayo.m + 7) / 8
+	ANew := make([]uint64, (((mayo.o*mayo.k+15)/16)*16)*MayoMOver8)
+	bitsToShift := 0
+	wordsToShift := 0
+	AWidth := ((mayo.o*mayo.k + 15) / 16) * 16
+
+	// TODO: zero out fails of m_vectors if necessary (not needed for mayo2 as 64 % 16 == 0)
+	// here
+	// here
+	// here
+
+	for i := 0; i < mayo.k; i++ {
+		for j := mayo.k - 1; j >= i; j-- {
+			Mj := mTemp + j*4*mayo.o //TODO: mVectorLimbs = 4
+			for c := 0; c < mayo.o; c++ {
+				for k := 0; k < 4; k++ { //TODO: mVectorLimbs = 4
+					ANew[mayo.o*j+c+(k+wordsToShift)*AWidth] ^= Mj[k+c*4] << bitsToShift
+				}
+			}
+		}
+	}
+}
