@@ -3,9 +3,7 @@ package mayo
 import (
 	"bytes"
 	"math"
-	"mayo-go/field"
 	"mayo-go/rand"
-	"slices"
 	"unsafe"
 )
 
@@ -13,7 +11,7 @@ import (
 // return an error, if it fails to generate random bytes.
 func (mayo *Mayo) CompactKeyGen() ([]byte, []byte, error) {
 	// Pick seekSk at random
-	seedSk := rand.SampleRandomBytes(mayo.skSeedBytes)
+	seedSk := make([]byte, mayo.skSeedBytes) //rand.SampleRandomBytes(mayo.skSeedBytes)
 
 	// Derive seedPk and O from seekSk
 	s := rand.SHAKE256(mayo.pkSeedBytes+mayo.oBytes, seedSk)
@@ -95,28 +93,27 @@ func (mayo *Mayo) Sign(esk, m []byte) []byte {
 
 	// Hash the message, and derive salt and t
 	mDigest := rand.SHAKE256(mayo.digestBytes, m)
-	R := rand.SampleRandomBytes(mayo.rBytes)
+	R := make([]byte, mayo.rBytes) //rand.SampleRandomBytes(mayo.rBytes)
 	salt := rand.SHAKE256(mayo.saltBytes, mDigest, R, seedSk)
 	t := decodeVec(mayo.m, rand.SHAKE256(mayo.intTimesLogQ(mayo.m), mDigest, salt))
 
 	mTemp := make([]uint64, mayo.k*mayo.o*4) // TODO: mVecLimbs = 4
 
 	// Attempt to find a preimage for t
-	var x []byte
-	v := make([][]byte, mayo.k)
+	x := make([]byte, mayo.k*mayo.n)
+	var v []byte
+	//v := make([]byte, mayo.k)
 	for ctr := 0; ctr < 256; ctr++ {
 		// Derive v_i and r
 		V := rand.SHAKE256(mayo.k*mayo.vBytes+mayo.intTimesLogQ(mayo.k, mayo.o), mDigest, salt, seedSk, []byte{byte(ctr)})
 		for i := 0; i < mayo.k; i++ {
-			v[i] = decodeVec(mayo.n-mayo.o, V[i*mayo.vBytes:(i+1)*mayo.vBytes])
+			v = append(v, decodeVec(mayo.n-mayo.o, V[i*mayo.vBytes:(i+1)*mayo.vBytes])...)
 		}
 		r := decodeVec(mayo.k*mayo.o, V[mayo.k*mayo.vBytes:mayo.k*mayo.vBytes+mayo.intTimesLogQ(mayo.k, mayo.o)])
 
 		// Build linear system Ax = y
 		A := make([]uint64, (((mayo.m+7)/8*8)*(mayo.k*mayo.o+1))/8)
 		y := make([]byte, mayo.m)
-
-		// Compute M and vPv
 		mayo.computeMAndVpv(v, L, P1, mTemp, A)
 		mayo.computeRhs(A, t, y)
 
@@ -139,8 +136,8 @@ func (mayo *Mayo) Sign(esk, m []byte) []byte {
 	s := make([]byte, mayo.k*mayo.n)
 	Ox := make([]byte, mayo.v)
 	for i := 0; i < mayo.k; i++ {
-		mayo.matMul(O, x[:i*mayo.o], Ox, mayo.o, mayo.n-mayo.o, 1)
-		mayo.matAdd(v[i], Ox, s, i*mayo.n, mayo.n-mayo.o, 1)
+		mayo.matMul(O, x[i*mayo.o:(i+1)*mayo.o], Ox, mayo.o, mayo.n-mayo.o, 1)
+		mayo.matAdd(v[i*(mayo.n-mayo.o):(i+1)*(mayo.n-mayo.o)], Ox, s, i*mayo.n, mayo.n-mayo.o, 1)
 		copy(s[:i*mayo.n+mayo.n-mayo.o], x[:i*mayo.o])
 	}
 
@@ -230,42 +227,8 @@ func (mayo *Mayo) intTimesLogQ(ints ...int) int {
 	return int(math.Ceil(float64(product) * math.Log2(float64(mayo.q)) / 8.0))
 }
 
-func (mayo *Mayo) echelonForm(B [][]byte) [][]byte {
-	pivotColumn := 0
-	pivotRow := 0
-
-	for pivotRow < mayo.m && pivotColumn < mayo.o*mayo.k+1 {
-		var possiblePivots []int
-		for i := pivotRow; i < mayo.m; i++ {
-			if B[i][pivotColumn] != 0 {
-				possiblePivots = append(possiblePivots, i)
-			}
-		}
-
-		if len(possiblePivots) == 0 {
-			pivotColumn++
-			continue
-		}
-
-		nextPivotRow := slices.Min(possiblePivots)
-		B[pivotRow], B[nextPivotRow] = B[nextPivotRow], B[pivotRow]
-
-		// Make the leading entry a 1
-		B[pivotRow] = mayo.field.MultiplyVecConstant(mayo.field.Gf16Inv(B[pivotRow][pivotColumn]), B[pivotRow])
-
-		// Eliminate entries below the pivot
-		for row := nextPivotRow + 1; row < mayo.m; row++ {
-			B[row] = field.AddVec(B[row], mayo.field.MultiplyVecConstant(B[row][pivotColumn], B[pivotRow]))
-		}
-
-		pivotRow++
-		pivotColumn++
-	}
-
-	return B
-}
-
-func (mayo *Mayo) lincomb(a []byte, b []byte, aCounter, j, n, m int) byte {
+/*
+func (mayo *Mayo) lincomb(a, b []byte, aCounter, j, n, m int) byte {
 	var ret byte
 	bCounter := 0
 	for i := 0; i < n; i++ {
@@ -275,7 +238,7 @@ func (mayo *Mayo) lincomb(a []byte, b []byte, aCounter, j, n, m int) byte {
 	return ret
 }
 
-func (mayo *Mayo) matMul(a []byte, b []byte, c []byte, colRowAb, rowA, colB int) {
+func (mayo *Mayo) matMul(a, b, c []byte, colRowAb, rowA, colB int) {
 	cCounter := 0
 	aCounter := 0
 	for i := 0; i < rowA; i++ {
@@ -287,7 +250,26 @@ func (mayo *Mayo) matMul(a []byte, b []byte, c []byte, colRowAb, rowA, colB int)
 	}
 }
 
-func (mayo *Mayo) matAdd(a []byte, b []byte, c []byte, cStartIdx, m, n int) {
+*/
+
+func (mayo *Mayo) lincomb(a, b []byte, n, m int) byte {
+	var ret byte = 0
+	for i := 0; i < n; i++ {
+		ret = mayo.field.Gf16Mul(a[i], b[i*m]) ^ ret
+	}
+	return ret
+}
+
+func (mayo *Mayo) matMul(a, b, c []byte, colrowAB, rowA, colB int) {
+	for i := 0; i < rowA; i++ {
+		aOffset := i * colrowAB
+		for j := 0; j < colB; j++ {
+			c[i*colB+j] = mayo.lincomb(a[aOffset:], b[j:], colrowAB, colB)
+		}
+	}
+}
+
+func (mayo *Mayo) matAdd(a, b, c []byte, cStartIdx, m, n int) {
 	for i := 0; i < m; i++ {
 		for j := 0; j < n; j++ {
 			c[cStartIdx+i*n+j] = (a[i*n+j]) ^ (b[i*n+j])
@@ -298,11 +280,11 @@ func (mayo *Mayo) matAdd(a []byte, b []byte, c []byte, cStartIdx, m, n int) {
 func (mayo *Mayo) efPackMVec(in []byte, inStart int, out []uint64, outStart int, nCols int) {
 	outBytes := unsafe.Slice((*byte)(unsafe.Pointer(&out[0])), len(out)*8) // TODO: take out+outstart?
 	for i := 0; i+1 < nCols; i += 2 {
-		outBytes[outStart/8+i/2] = (in[inStart+i+0] << 0) | (in[inStart+i+1] << 4)
+		outBytes[outStart/8+i/2] = (in[inStart+i] << 0) | (in[inStart+i+1] << 4)
 	}
 
 	if nCols%2 == 1 {
-		outBytes[outStart/8+nCols/2] = in[inStart+nCols+0] << 0 // TODO: nCols instead of i
+		outBytes[outStart/8+nCols/2] = in[inStart+nCols-1] << 0 // TODO: nCols instead of i and also added -1
 	}
 }
 
@@ -425,7 +407,7 @@ func (mayo *Mayo) ctCompare8(a, b byte) byte {
 	return 0xff
 }
 
-func (mayo *Mayo) sampleSolutionOpti(A []byte, y, r, x []byte, k, o, m, aCols int) bool {
+func (mayo *Mayo) sampleSolutionOpti(A, y, r, x []byte, k, o, m, aCols int) bool {
 	// x <- r
 	copy(x, r)
 
@@ -434,7 +416,7 @@ func (mayo *Mayo) sampleSolutionOpti(A []byte, y, r, x []byte, k, o, m, aCols in
 	for i := 0; i < m; i++ {
 		A[k*o+i*(k*o+1)] = 0 // clear last col of A
 	}
-	mayo.matMul(A, r, Ar, k*o+1, m, 1)
+	mayo.matMul(A, r, Ar, k*o, m, 1) // TODO: removed +1 from k*o
 
 	// move y - Ar to last column of matrix A
 	for i := 0; i < m; i++ {
@@ -458,7 +440,7 @@ func (mayo *Mayo) sampleSolutionOpti(A []byte, y, r, x []byte, k, o, m, aCols in
 		colUpperBound := int(math.Min(float64(row+(32/(m-row))), float64(k*o)))
 
 		for col := row; col <= colUpperBound; col++ {
-			correctColumn := mayo.ctCompare8(A[row*aCols+col], 0) & ^finished // TODO: implement
+			correctColumn := mayo.ctCompare8(A[row*aCols+col], 0) & ^finished
 
 			u := correctColumn & A[row*aCols+aCols-1]
 			x[col] ^= u

@@ -108,38 +108,6 @@ func encodeMatrices(r, c int, matrices [][][]byte, isUpperTriangular bool) []byt
 	return encoded
 }
 
-// transposeVector transposes a vector into a matrix
-func transposeVector(vec []byte) [][]byte {
-	matrix := make([][]byte, 1)
-	matrix[0] = vec
-	return matrix
-}
-
-// upper transposes the lower triangular part of a matrix to the upper triangular part
-func upper(matrix [][]byte) [][]byte {
-	n := len(matrix)
-
-	for i := 0; i < n; i++ {
-		for j := i + 1; j < n; j++ {
-			matrix[i][j] = matrix[i][j] ^ matrix[j][i] // Update upper triangular part
-			matrix[j][i] = 0
-		}
-	}
-
-	return matrix
-}
-
-// generateZeroMatrix generates a matrix of bytes with all elements set to zero
-func generateZeroMatrix(rows, columns int) [][]byte {
-	matrix := make([][]byte, rows)
-
-	for i := 0; i < rows; i++ {
-		matrix[i] = make([]byte, columns)
-	}
-
-	return matrix
-}
-
 func uint64SliceToBytes(dst []byte, src []uint64) {
 	// Convert each uint32 to 4 bytes
 	for _, s := range src {

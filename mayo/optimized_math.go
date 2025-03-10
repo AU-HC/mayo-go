@@ -1,7 +1,6 @@
 package mayo
 
 import (
-	"math"
 	"unsafe"
 )
 
@@ -299,36 +298,36 @@ func (mayo *Mayo) evalPublicMap(s []byte, P1 []uint64, P2 []uint64, P3 []uint64,
 	mayo.computeRhs(SPS, zero, eval)
 }
 
-func (mayo *Mayo) mulAddMatXMMat(v [][]byte, L []uint64, mTemp []uint64, bsMatCols int) {
-	for r := 0; r < mayo.k; r++ {
-		for c := 0; c < mayo.v; c++ {
+func (mayo *Mayo) mulAddMatXMMat(v []byte, L []uint64, acc []uint64, matRows, matCols, bsMatCols int) {
+	for r := 0; r < matRows; r++ {
+		for c := 0; c < matCols; c++ {
 			for k := 0; k < bsMatCols; k++ {
-				mayo.vecMulAdd(L, 4*(c*mayo.o+k), v[r][mayo.v+c], mTemp, 4*(r*mayo.o+k)) // TODO: mVectorLimbs = 4 also are we indexing correct in v
+				mayo.vecMulAdd(L, 4*(c*bsMatCols+k), v[r*matCols+c], acc, 4*(r*bsMatCols+k)) // TODO: mVectorLimbs = 4 also are we indexing correct in v
 			}
 		}
 	}
 }
 
-func (mayo *Mayo) P1MulVt(P1 []uint64, v [][]byte, Pv []uint64) {
+func (mayo *Mayo) P1MulVt(P1 []uint64, v []byte, Pv []uint64) {
 	bsMatEntriesUsed := 0
 	for r := 0; r < mayo.v; r++ {
 		for c := 1 * r; c < mayo.v; c++ {
 			for k := 0; k < mayo.k; k++ {
-				mayo.vecMulAdd(P1, 4*bsMatEntriesUsed, v[k][mayo.v+c], Pv, 4*(r*mayo.k+k)) // TODO: mVectorLimbs = 4 also are we indexing correct in v
+				mayo.vecMulAdd(P1, 4*bsMatEntriesUsed, v[k*mayo.v+c], Pv, 4*(r*mayo.k+k)) // TODO: mVectorLimbs = 4 also are we indexing correct in v
 			}
 			bsMatEntriesUsed++
 		}
 	}
 }
 
-func (mayo *Mayo) computeMAndVpv(v [][]byte, L, P1, mTemp, A []uint64) {
+func (mayo *Mayo) computeMAndVpv(v []byte, L, P1, mTemp, A []uint64) {
 	// Compute VL
-	mayo.mulAddMatXMMat(v, L, mTemp, mayo.o)
+	mayo.mulAddMatXMMat(v, L, mTemp, mayo.k, mayo.v, mayo.o)
 
 	// Compute VP1V
 	Pv := make([]uint64, mayo.v*mayo.k*4) // TODO: 4 = mVectorLimbs
 	mayo.P1MulVt(P1, v, Pv)
-	mayo.mulAddMatXMMat(v, Pv, A, mayo.k) // TODO: Cast A to uint64* type
+	mayo.mulAddMatXMMat(v, Pv, A, mayo.k, mayo.v, mayo.k) // TODO: Cast A to uint64* type
 }
 
 func (mayo *Mayo) Transpose16x16Nibbles(M []uint64, c int) {
@@ -436,15 +435,33 @@ func (mayo *Mayo) computeA(mTemp []uint64, AOut []byte) {
 			}
 		}
 	}
+	/*
+		aCols := mayo.k*mayo.o + 1
+		aBytes := make([]byte, len(A)*8)
+		uint64SliceToBytes(aBytes, A)
+		for r := 0; r < mayo.m; r += 16 {
+			for c := 0; c < aCols-1; c += 16 {
+				for i := 0; i+r < mayo.m; i++ {
+					col := decodeVec(int(math.Min(16, float64(aCols-1-c))), aBytes[r*AWidth/16+c+i:])
+					copy(AOut[aCols*(r+i)+c:aCols*(r+(i+1))+c], col[:]) // TODO Check this
+				}
+			}
+		}
 
-	aCols := mayo.k*mayo.o + 1
+	*/
+
 	aBytes := make([]byte, len(A)*8)
-	uint64SliceToBytes(aBytes, A)
+	uint64SliceToBytes(aBytes[:], A[:])
+
+	OKpadded := (mayo.k*mayo.o + 15) / 16 * 16
+	KO1 := mayo.k*mayo.o + 1
 	for r := 0; r < mayo.m; r += 16 {
-		for c := 0; c < aCols-1; c += 16 {
-			for i := 0; i+r < mayo.m; i++ {
-				col := decodeVec(int(math.Min(16, float64(aCols-1-c))), aBytes[:r*AWidth/16+c+i])
-				copy(AOut[aCols*(r+i)+c:aCols*(r+(i+1))+c], col[:]) // TODO Check this
+		for c := 0; c < KO1-1; c += 16 {
+			for i := 0; i < 16; i++ {
+				src := aBytes[(r/16*OKpadded+c+i)*8:]
+				offset := KO1*(r+i) + c
+				decoded := decodeVec(len(src), src) // TODO: Fix
+				copy(AOut[offset:offset+min(16, KO1-1-c)], decoded)
 			}
 		}
 	}
