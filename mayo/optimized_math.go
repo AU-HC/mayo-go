@@ -68,6 +68,34 @@ func mulTable(b byte) uint64 {
 	return x ^ (highHalf >> 4) ^ (highHalf >> 3)
 }
 
+func (mayo *Mayo) lincomb(a, b []byte, n, m int) byte {
+	var ret byte = 0
+	for i := 0; i < n; i++ {
+		if i >= len(a) || i*m >= len(b) {
+			continue // count as XOR'ing with zero
+		}
+		ret = mayo.field.Gf16Mul(a[i], b[i*m]) ^ ret
+	}
+	return ret
+}
+
+func (mayo *Mayo) matMul(a, b, c []byte, colrowAB, rowA, colB int) {
+	for i := 0; i < rowA; i++ {
+		aOffset := i * colrowAB
+		for j := 0; j < colB; j++ {
+			c[i*colB+j] = mayo.lincomb(a[aOffset:], b[j:], colrowAB, colB)
+		}
+	}
+}
+
+func (mayo *Mayo) matAdd(a, b, c []byte, cStartIdx, m, n int) {
+	for i := 0; i < m; i++ {
+		for j := 0; j < n; j++ {
+			c[cStartIdx+i*n+j] = (a[i*n+j]) ^ (b[i*n+j])
+		}
+	}
+}
+
 func (mayo *Mayo) upper(matrix []uint64, matrixUpper []uint64, rows, cols int) {
 	entriesUsed := 0
 	u32PerIndex := (mayo.m + 15) / 16
