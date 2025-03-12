@@ -125,7 +125,7 @@ func (mayo *Mayo) Sign(esk, m []byte) []byte {
 		}
 
 		aCols := mayo.k*mayo.o + 1
-		hasSolution := mayo.sampleSolutionOpti(aBytes, y, r, x, mayo.k, mayo.o, mayo.m, aCols)
+		hasSolution := mayo.sampleSolution(aBytes, y, r, x, mayo.k, mayo.o, mayo.m, aCols)
 
 		if hasSolution {
 			break
@@ -225,31 +225,6 @@ func (mayo *Mayo) intTimesLogQ(ints ...int) int {
 
 	return int(math.Ceil(float64(product) * math.Log2(float64(mayo.q)) / 8.0))
 }
-
-/*
-func (mayo *Mayo) lincomb(a, b []byte, aCounter, j, n, m int) byte {
-	var ret byte
-	bCounter := 0
-	for i := 0; i < n; i++ {
-		bCounter += m
-		ret = mayo.field.Gf16Mul(a[aCounter+i], b[j+bCounter]) ^ ret
-	}
-	return ret
-}
-
-func (mayo *Mayo) matMul(a, b, c []byte, colRowAb, rowA, colB int) {
-	cCounter := 0
-	aCounter := 0
-	for i := 0; i < rowA; i++ {
-		aCounter += colRowAb
-		for j := 0; j < colB; j++ {
-			cCounter++
-			c[cCounter] = mayo.lincomb(a, b, aCounter, j, colRowAb, colB)
-		}
-	}
-}
-
-*/
 
 func (mayo *Mayo) lincomb(a, b []byte, n, m int) byte {
 	var ret byte = 0
@@ -410,7 +385,7 @@ func (mayo *Mayo) ctCompare8(a, b byte) byte {
 	return 0xff
 }
 
-func (mayo *Mayo) sampleSolutionOpti(A, y, r, x []byte, k, o, m, aCols int) bool {
+func (mayo *Mayo) sampleSolution(A, y, r, x []byte, k, o, m, aCols int) bool {
 	// x <- r
 	copy(x, r)
 
