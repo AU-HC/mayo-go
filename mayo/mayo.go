@@ -149,16 +149,13 @@ func (mayo *Mayo) Sign(esk, m []byte) []byte {
 // Verify (Algorithm 8) takes an expanded public key, message m, and signature sig and outputs an integer to indicate
 // if the signature is valid on m. Specifically if the signature is valid it will output 0, if invalid < 0.
 func (mayo *Mayo) Verify(epk, m, sig []byte) int {
-	// Decode epk TODO: probably refactor this
-	P1ByteString := epk[:mayo.p1Bytes]
-	P2ByteString := epk[mayo.p1Bytes : mayo.p1Bytes+mayo.p2Bytes]
-	P3ByteString := epk[mayo.p1Bytes+mayo.p2Bytes : mayo.p1Bytes+mayo.p2Bytes+mayo.p3Bytes]
+	// Decode epk
 	P1 := make([]uint64, mayo.p1Bytes/8)
 	P2 := make([]uint64, mayo.p2Bytes/8)
 	P3 := make([]uint64, mayo.p3Bytes/8)
-	bytesToUint64Slice(P1, P1ByteString)
-	bytesToUint64Slice(P2, P2ByteString)
-	bytesToUint64Slice(P3, P3ByteString)
+	bytesToUint64Slice(P1, epk[:mayo.p1Bytes])
+	bytesToUint64Slice(P2, epk[mayo.p1Bytes:mayo.p1Bytes+mayo.p2Bytes])
+	bytesToUint64Slice(P3, epk[mayo.p1Bytes+mayo.p2Bytes:mayo.p1Bytes+mayo.p2Bytes+mayo.p3Bytes])
 
 	// Decode sig
 	nkHalf := int(math.Ceil(float64(mayo.n) * float64(mayo.k) / 2.0))
