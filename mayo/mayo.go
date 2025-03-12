@@ -11,7 +11,7 @@ import (
 // return an error, if it fails to generate random bytes.
 func (mayo *Mayo) CompactKeyGen() ([]byte, []byte, error) {
 	// Pick seekSk at random
-	seedSk := make([]byte, mayo.skSeedBytes) //rand.SampleRandomBytes(mayo.skSeedBytes)
+	seedSk := rand.SampleRandomBytes(mayo.skSeedBytes)
 
 	// Derive seedPk and O from seekSk
 	s := rand.SHAKE256(mayo.pkSeedBytes+mayo.oBytes, seedSk)
@@ -93,7 +93,7 @@ func (mayo *Mayo) Sign(esk, m []byte) []byte {
 
 	// Hash the message, and derive salt and t
 	mDigest := rand.SHAKE256(mayo.digestBytes, m)
-	R := make([]byte, mayo.rBytes) //rand.SampleRandomBytes(mayo.rBytes)
+	R := rand.SampleRandomBytes(mayo.rBytes)
 	salt := rand.SHAKE256(mayo.saltBytes, mDigest, R, seedSk)
 	t := decodeVec(mayo.m, rand.SHAKE256(mayo.intTimesLogQ(mayo.m), mDigest, salt))
 
@@ -102,7 +102,6 @@ func (mayo *Mayo) Sign(esk, m []byte) []byte {
 	// Attempt to find a preimage for t
 	x := make([]byte, mayo.k*mayo.n)
 	var v []byte
-	//v := make([]byte, mayo.k)
 	for ctr := 0; ctr < 256; ctr++ {
 		// Derive v_i and r
 		V := rand.SHAKE256(mayo.k*mayo.vBytes+mayo.intTimesLogQ(mayo.k, mayo.o), mDigest, salt, seedSk, []byte{byte(ctr)})
@@ -136,9 +135,9 @@ func (mayo *Mayo) Sign(esk, m []byte) []byte {
 	s := make([]byte, mayo.k*mayo.n)
 	Ox := make([]byte, mayo.v)
 	for i := 0; i < mayo.k; i++ {
-		mayo.matMul(O, x[i*mayo.o:(i+1)*mayo.o], Ox, mayo.o, mayo.n-mayo.o, 1)
-		mayo.matAdd(v[i*(mayo.n-mayo.o):(i+1)*(mayo.n-mayo.o)], Ox, s, i*mayo.n, mayo.n-mayo.o, 1)
-		copy(s[:i*mayo.n+mayo.n-mayo.o], x[:i*mayo.o])
+		mayo.matMul(O, x[i*mayo.o:], Ox, mayo.o, mayo.n-mayo.o, 1)
+		mayo.matAdd(v[i*(mayo.n-mayo.o):], Ox, s, i*mayo.n, mayo.n-mayo.o, 1)
+		copy(s[i*mayo.n+mayo.n-mayo.o:], x[i*mayo.o:])
 	}
 
 	// Finish and output the signature
@@ -255,6 +254,9 @@ func (mayo *Mayo) matMul(a, b, c []byte, colRowAb, rowA, colB int) {
 func (mayo *Mayo) lincomb(a, b []byte, n, m int) byte {
 	var ret byte = 0
 	for i := 0; i < n; i++ {
+		if i >= len(a) || i*m >= len(b) {
+			continue // count as XOR'ing with zero
+		}
 		ret = mayo.field.Gf16Mul(a[i], b[i*m]) ^ ret
 	}
 	return ret
@@ -279,12 +281,13 @@ func (mayo *Mayo) matAdd(a, b, c []byte, cStartIdx, m, n int) {
 
 func (mayo *Mayo) efPackMVec(in []byte, inStart int, out []uint64, outStart int, nCols int) {
 	outBytes := unsafe.Slice((*byte)(unsafe.Pointer(&out[0])), len(out)*8) // TODO: take out+outstart?
-	for i := 0; i+1 < nCols; i += 2 {
-		outBytes[outStart/8+i/2] = (in[inStart+i] << 0) | (in[inStart+i+1] << 4)
+	i := 0
+	for ; i+1 < nCols; i += 2 {
+		outBytes[outStart*8+i/2] = (in[inStart+i] << 0) | (in[inStart+i+1] << 4)
 	}
 
 	if nCols%2 == 1 {
-		outBytes[outStart/8+nCols/2] = in[inStart+nCols-1] << 0 // TODO: nCols instead of i and also added -1
+		outBytes[outStart*8+i/2] = in[inStart+i] << 0
 	}
 }
 
@@ -395,8 +398,8 @@ func (mayo *Mayo) echelonForm2(A []byte, nRows int, nCols int) {
 func efUnpackMVec(legs int, in []uint64, inStart int, out []byte) {
 	inBytes := unsafe.Slice((*byte)(unsafe.Pointer(&in[0])), len(in)*8)
 	for i := 0; i < legs*16; i += 2 {
-		out[i] = (inBytes[inStart/8+i/2]) & 0xF
-		out[i+1] = (inBytes[inStart/8+i/2]) >> 4
+		out[i] = (inBytes[inStart*8+i/2]) & 0xF
+		out[i+1] = (inBytes[inStart*8+i/2]) >> 4
 	}
 }
 
@@ -416,7 +419,7 @@ func (mayo *Mayo) sampleSolutionOpti(A, y, r, x []byte, k, o, m, aCols int) bool
 	for i := 0; i < m; i++ {
 		A[k*o+i*(k*o+1)] = 0 // clear last col of A
 	}
-	mayo.matMul(A, r, Ar, k*o, m, 1) // TODO: removed +1 from k*o
+	mayo.matMul(A, r, Ar, k*o+1, m, 1)
 
 	// move y - Ar to last column of matrix A
 	for i := 0; i < m; i++ {

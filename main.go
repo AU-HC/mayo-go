@@ -23,7 +23,7 @@ func main() {
 	}
 
 	// Initialize MAYO
-	message := []byte("Hello, world!")
+	message := make([]byte, 32) //[]byte("Hello, world!")
 	mayo, err := crypto.InitMayo(2)
 	if err != nil {
 		fmt.Println(err)

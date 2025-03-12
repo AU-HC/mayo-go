@@ -320,9 +320,9 @@ func (mayo *Mayo) P1MulVt(P1 []uint64, v []byte, Pv []uint64) {
 	}
 }
 
-func (mayo *Mayo) computeMAndVpv(v []byte, L, P1, mTemp, A []uint64) {
+func (mayo *Mayo) computeMAndVpv(v []byte, L, P1, VL, A []uint64) {
 	// Compute VL
-	mayo.mulAddMatXMMat(v, L, mTemp, mayo.k, mayo.v, mayo.o)
+	mayo.mulAddMatXMMat(v, L, VL, mayo.k, mayo.v, mayo.o)
 
 	// Compute VP1V
 	Pv := make([]uint64, mayo.v*mayo.k*4) // TODO: 4 = mVectorLimbs
@@ -384,9 +384,9 @@ func (mayo *Mayo) computeA(mTemp []uint64, AOut []byte) {
 		for j := mayo.k - 1; j >= i; j-- {
 			for c := 0; c < mayo.o; c++ {
 				for k := 0; k < 4; k++ { //TODO: mVectorLimbs = 4
-					A[mayo.o*i+c+(k+wordsToShift)*AWidth] ^= mTemp[j*4*mayo.o+k+c*4] << bitsToShift //TODO: mVectorLimbs = 4
+					A[mayo.o*i+c+(k+wordsToShift)*AWidth] ^= mTemp[j*4*mayo.o+k+c*4] << bitsToShift // TODO: mVectorLimbs = 4
 					if bitsToShift > 0 {
-						A[mayo.o*i+c+(k+wordsToShift+1)*AWidth] ^= mTemp[j*4*mayo.o+k+c*4] >> (64 - bitsToShift) //TODO: mVectorLimbs = 4
+						A[mayo.o*i+c+(k+wordsToShift+1)*AWidth] ^= mTemp[j*4*mayo.o+k+c*4] >> (64 - bitsToShift) // TODO: mVectorLimbs = 4
 					}
 				}
 			}
@@ -423,7 +423,7 @@ func (mayo *Mayo) computeA(mTemp []uint64, AOut []byte) {
 	}
 
 	lowBitInNibble := uint64(0x1111111111111111)
-	for c := 0; c < AWidth; c++ {
+	for c := 0; c < AWidth; c += 16 {
 		for r := mayo.m; r < mayo.m+(mayo.k+1)*mayo.k/2; r++ {
 			pos := (r/16)*AWidth + c + (r % 16)
 			t0 := A[pos] & lowBitInNibble
