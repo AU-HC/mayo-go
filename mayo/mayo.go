@@ -187,7 +187,7 @@ func (mayo *Mayo) APISign(M, sk []byte) []byte {
 	sig := mayo.Sign(esk, M)
 
 	// Return signed message
-	result := make([]byte, mayo.sigBytes+len(M))
+	result := make([]byte, sigBytes+len(M))
 	copy(result[:sigBytes], sig)
 	copy(result[sigBytes:], M)
 	return result

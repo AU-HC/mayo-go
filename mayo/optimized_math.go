@@ -428,7 +428,7 @@ func (mayo *Mayo) computeA(mTemp []uint64, AOut []byte) {
 		mayo.Transpose16x16Nibbles(A, c)
 	}
 
-	tab := make([]byte, len(mayo.tailF)*4) // TODO: mVecLimbs
+	tab := make([]byte, len(mayo.tailF)*4) // TODO: is this mVecLimbs
 	for i := 0; i < len(mayo.tailF); i++ {
 		tab[4*i] = mayo.field.Gf16Mul(mayo.tailF[i], 1)
 		tab[4*i+1] = mayo.field.Gf16Mul(mayo.tailF[i], 2)
