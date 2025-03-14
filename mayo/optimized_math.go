@@ -121,9 +121,9 @@ func (mayo *Mayo) computeP3(P1 []uint64, O [][]byte, P2 []uint64) []byte {
 	var P3Upper [P3Bytes / 8]uint64
 	mayo.upper(P3[:], P3Upper[:], v, o)
 	// Serialize P3 to bytes TODO: Consider making a struct for PK and simply storing the uint32's
-	P3ByteArray := make([]byte, P3Bytes)
-	uint64SliceToBytes(P3ByteArray, P3Upper[:])
-	return P3ByteArray
+	var P3ByteArray [P3Bytes]byte
+	uint64SliceToBytes(P3ByteArray[:], P3Upper[:])
+	return P3ByteArray[:]
 }
 
 func (mayo *Mayo) computeL(P1 []uint64, O [][]byte, P2acc []uint64) []byte {
@@ -383,11 +383,10 @@ func (mayo *Mayo) Transpose16x16Nibbles(M []uint64, c int) {
 }
 
 func (mayo *Mayo) computeA(mTemp []uint64, AOut []byte) {
-	mayoMOver8 := (M + 7) / 8
 	bitsToShift := 0
 	wordsToShift := 0
 	AWidth := ((o*K + 15) / 16) * 16
-	A := make([]uint64, (((o*K+15)/16)*16)*mayoMOver8)
+	var A [(((o*K + 15) / 16) * 16) * ((M + 7) / 8)]uint64
 
 	// TODO: zero out fails of m_vectors if necessary (not needed for mayo2 as 64 % 16 == 0)
 	// here
@@ -425,7 +424,7 @@ func (mayo *Mayo) computeA(mTemp []uint64, AOut []byte) {
 	}
 
 	for c := 0; c < AWidth*((M+(K+1)*K/2+15)/16); c += 16 {
-		mayo.Transpose16x16Nibbles(A, c)
+		mayo.Transpose16x16Nibbles(A[:], c)
 	}
 
 	tab := make([]byte, len(mayo.tailF)*4) // TODO: is this mVecLimbs
@@ -450,7 +449,7 @@ func (mayo *Mayo) computeA(mTemp []uint64, AOut []byte) {
 		}
 	}
 
-	aBytes := make([]byte, len(A)*8)
+	var aBytes [((((o*K + 15) / 16) * 16) * ((M + 7) / 8)) * 8]byte
 	uint64SliceToBytes(aBytes[:], A[:])
 
 	OKpadded := (K*o + 15) / 16 * 16
@@ -458,10 +457,10 @@ func (mayo *Mayo) computeA(mTemp []uint64, AOut []byte) {
 	for r := 0; r < M; r += 16 {
 		for c := 0; c < KO1-1; c += 16 {
 			for i := 0; i < 16; i++ {
-				src := aBytes[(r/16*OKpadded+c+i)*8:]
 				offset := KO1*(r+i) + c
-				decoded := decodeVec(len(src), src)
-				copy(AOut[offset:offset+min(16, KO1-1-c)], decoded)
+				src := aBytes[(r/16*OKpadded+c+i)*8:]
+				dst := AOut[offset : offset+min(16, KO1-1-c)]
+				decodeVecImproved(dst, src)
 			}
 		}
 	}

@@ -38,6 +38,23 @@ func decodeVec(n int, byteString []byte) []byte {
 	return decoded
 }
 
+func decodeVecImproved(dst, src []byte) {
+	n := len(dst)
+
+	for i := 0; i < n/2; i++ {
+		firstNibble := src[i] & 0xf
+		secondNibble := src[i] >> 4
+
+		dst[i*2] = firstNibble
+		dst[i*2+1] = secondNibble
+	}
+
+	// if 'N' is odd, then fix last nibble. Not second nibble present in the last byte
+	if n%2 == 1 {
+		dst[n-1] = src[n/2] & 0xf
+	}
+}
+
 // decodeMatrix decodes a byte slice into a matrix of byte slices
 func decodeMatrix(rows, columns int, bytes []byte) [][]byte {
 	flatDecodedMatrix := decodeVec(rows*columns, bytes)

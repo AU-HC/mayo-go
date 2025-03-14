@@ -156,7 +156,7 @@ func (mayo *Mayo) ctCompare8(a, b byte) byte {
 }
 
 func (mayo *Mayo) efPackMVec(in []byte, inStart int, out []uint64, outStart int, nCols int) {
-	outBytes := unsafe.Slice((*byte)(unsafe.Pointer(&out[0])), len(out)*8) // TODO: take out+outstart?
+	outBytes := unsafe.Slice((*byte)(unsafe.Pointer(&out[0])), len(out)*8)
 	i := 0
 	for ; i+1 < nCols; i += 2 {
 		outBytes[outStart*8+i/2] = (in[inStart+i] << 0) | (in[inStart+i+1] << 4)
