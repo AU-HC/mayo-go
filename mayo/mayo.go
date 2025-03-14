@@ -2,7 +2,6 @@ package mayo
 
 import (
 	"bytes"
-	"fmt"
 	"math"
 	"mayo-go/rand"
 )
@@ -82,7 +81,6 @@ func (mayo *Mayo) ExpandPK(cpk []byte) []byte {
 // Sign (Algorithm 7) takes an expanded secret key esk and a message M and outputs a signature on the message M
 func (mayo *Mayo) Sign(esk, message []byte) []byte {
 	// Decode esk
-	fmt.Println(fmt.Sprintf("lbytes: %d", lBytes))
 	seedSk := esk[:skSeedBytes]
 	O := decodeVec(v*o, esk[skSeedBytes:skSeedBytes+OBytes])
 	P1ByteArray := esk[skSeedBytes+OBytes : skSeedBytes+OBytes+P1Bytes]
