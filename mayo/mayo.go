@@ -10,11 +10,12 @@ import (
 // return an error, if it fails to generate random bytes.
 func (mayo *Mayo) CompactKeyGen() ([]byte, []byte, error) {
 	// Pick seekSk at random
-	seedSk := rand.SampleRandomBytes(skSeedBytes)
+	var seedSk [skSeedBytes]byte
+	rand.SampleRandomBytes(seedSk[:])
 
 	// Derive seedPk and O from seekSk
 	var s [pkSeedBytes + OBytes]byte
-	rand.SHAKE256(s[:], seedSk)
+	rand.SHAKE256(s[:], seedSk[:])
 	seedPk := s[:pkSeedBytes]
 	O := decodeMatrix(v, o, s[pkSeedBytes:pkSeedBytes+OBytes])
 
@@ -33,7 +34,7 @@ func (mayo *Mayo) CompactKeyGen() ([]byte, []byte, error) {
 	csk := seedSk
 
 	// Output keys
-	return cpk[:], csk, nil
+	return cpk[:], csk[:], nil
 }
 
 // ExpandSK (Algorithm 5) takes the compacted secret key csk and outputs an expanded secret key esk
@@ -96,9 +97,10 @@ func (mayo *Mayo) Sign(esk, message []byte) []byte {
 	// Hash the message, and derive salt and t
 	var mDigest [digestBytes]byte
 	rand.SHAKE256(mDigest[:], message)
-	R := rand.SampleRandomBytes(rBytes)
+	var R [rBytes]byte
+	rand.SampleRandomBytes(R[:])
 	var salt [saltBytes]byte
-	rand.SHAKE256(salt[:], mDigest[:], R, seedSk)
+	rand.SHAKE256(salt[:], mDigest[:], R[:], seedSk)
 	var t [M]byte
 	decodeVecImproved(t[:], rand.SHAKE256Slow(mayo.intTimesLogQ(M), mDigest[:], salt[:]))
 
@@ -178,7 +180,7 @@ func (mayo *Mayo) Verify(epk, message, sig []byte) int {
 
 	// Compute P^*(s)
 	var y [2 * M]byte
-	mayo.evalPublicMap(s, P1[:], P2[:], P3[:], y[:]) // TODO dont use all
+	mayo.evalPublicMap(s, P1[:], P2[:], P3[:], y[:])
 
 	// Accept the signature if y = t
 	if bytes.Equal(y[:M], t[:]) {

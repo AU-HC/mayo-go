@@ -22,10 +22,8 @@ func InitRandomness(entropyInput []byte, personalizationString []byte, securityS
 	)
 }
 
-func SampleRandomBytes(length int) []byte {
-	value := make([]byte, length)
-	C.randombytes((*C.uchar)(unsafe.Pointer(&value[0])), C.size_t(length))
-	return value
+func SampleRandomBytes(dst []byte) {
+	C.randombytes((*C.uchar)(unsafe.Pointer(&dst[0])), C.size_t(len(dst)))
 }
 
 func AES128CTR(seed, dst []byte) {
