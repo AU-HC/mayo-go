@@ -133,19 +133,22 @@ func (f *Field) VecInnerProduct(vec1Transposed []byte, vec2 []byte) byte {
 
 func gf16Mul(a, b byte) byte {
 	var r byte
-	if b&1 != 0 {
-		r ^= a
-	}
-	if b&2 != 0 {
-		r ^= (a << 1) ^ (a >> 3) ^ ((a >> 2) & 0x2)
-	}
-	if b&4 != 0 {
-		r ^= (a << 2) ^ (a >> 2) ^ ((a >> 1) & 0x6)
-	}
-	if b&8 != 0 {
-		r ^= (a << 3) ^ (a >> 1) ^ (a & 0xE)
-	}
-	return r & 0xF
+
+	// Multiply each coefficient with y
+	r = (a & 0x1) * b
+	r ^= (a & 0x2) * b
+	r ^= (a & 0x4) * b
+	r ^= (a & 0x8) * b
+
+	overFlowBits := r & 0xF0
+
+	// Reduce with respect to x^4 + x + 1
+	reducedOverFlowBits := overFlowBits>>4 ^ overFlowBits>>3
+
+	// Subtract and remove overflow bits
+	r = (r ^ reducedOverFlowBits) & 0x0F
+
+	return r
 }
 
 func generateMulAndInvTable() ([][]byte, []byte) {
