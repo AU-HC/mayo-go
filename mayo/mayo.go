@@ -88,7 +88,7 @@ func (mayo *Mayo) Sign(esk, message []byte) []byte {
 	// Decode esk
 	seedSk := esk[:skSeedBytes]
 	var O [v * o]byte
-	decodeVecImproved(O[:], esk[skSeedBytes:skSeedBytes+OBytes])
+	decodeVec(O[:], esk[skSeedBytes:skSeedBytes+OBytes])
 	var P1 [P1Bytes / 8]uint64
 	var L [lBytes / 8]uint64
 	bytesToUint64Slice(P1[:], esk[skSeedBytes+OBytes:skSeedBytes+OBytes+P1Bytes])
@@ -102,7 +102,7 @@ func (mayo *Mayo) Sign(esk, message []byte) []byte {
 	var salt [saltBytes]byte
 	rand.SHAKE256(salt[:], mDigest[:], R[:], seedSk)
 	var t [M]byte
-	decodeVecImproved(t[:], rand.SHAKE256Slow(mayo.intTimesLogQ(M), mDigest[:], salt[:]))
+	decodeVec(t[:], rand.SHAKE256Slow(mayo.intTimesLogQ(M), mDigest[:], salt[:]))
 
 	// Attempt to find a preimage for t
 	var mTemp [K * o * mVecLimbs]uint64
@@ -113,12 +113,11 @@ func (mayo *Mayo) Sign(esk, message []byte) []byte {
 		ctrForShake := []byte{byte(ctr)}
 		V := rand.SHAKE256Slow(K*vBytes+mayo.intTimesLogQ(K, o), mDigest[:], salt[:], seedSk, ctrForShake)
 		for i := 0; i < K; i++ {
-			decoded := decodeVec(v, V[i*vBytes:(i+1)*vBytes])
-			offset := i * len(decoded)
-			copy(vDec[offset:], decoded)
+			offset := i * v
+			decodeVec(vDec[offset:offset+v], V[i*vBytes:(i+1)*vBytes])
 		}
 		var r [K * o]byte
-		decodeVecImproved(r[:], V[K*vBytes:K*vBytes+mayo.intTimesLogQ(K, o)])
+		decodeVec(r[:], V[K*vBytes:K*vBytes+mayo.intTimesLogQ(K, o)])
 
 		// Build linear system Ax = y
 		var A [(((M + 7) / 8 * 8) * (K*o + 1)) / 8]uint64
@@ -170,17 +169,18 @@ func (mayo *Mayo) Verify(epk, message, sig []byte) int {
 	// Decode sig
 	nkHalf := int(math.Ceil(float64(N) * float64(K) / 2.0))
 	salt := sig[nkHalf : nkHalf+saltBytes]
-	s := decodeVec(K*N, sig)
+	var s [K * N]byte
+	decodeVec(s[:], sig)
 
 	// Hash the message and derive t
 	var mDigest [digestBytes]byte
 	rand.SHAKE256(mDigest[:], message)
 	var t [M]byte
-	decodeVecImproved(t[:], rand.SHAKE256Slow(mayo.intTimesLogQ(M), mDigest[:], salt))
+	decodeVec(t[:], rand.SHAKE256Slow(mayo.intTimesLogQ(M), mDigest[:], salt))
 
 	// Compute P^*(s)
 	var y [2 * M]byte
-	mayo.evalPublicMap(s, P1[:], P2[:], P3[:], y[:])
+	mayo.evalPublicMap(s[:], P1[:], P2[:], P3[:], y[:])
 
 	// Accept the signature if y = t
 	if bytes.Equal(y[:M], t[:]) {

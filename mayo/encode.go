@@ -17,9 +17,9 @@ func encodeVec(bytes []byte) []byte {
 	return encoded
 }
 
-// decodeVec decodes a byte slice into a byte slice of length N
+// decodeVecSlow decodes a byte slice into a byte slice of length N
 // where N is the length of the original byte slice (to accommodate for odd N)
-func decodeVec(n int, byteString []byte) []byte {
+func decodeVecSlow(n int, byteString []byte) []byte {
 	decoded := make([]byte, n)
 
 	for i := 0; i < n/2; i++ {
@@ -38,7 +38,7 @@ func decodeVec(n int, byteString []byte) []byte {
 	return decoded
 }
 
-func decodeVecImproved(dst, src []byte) {
+func decodeVec(dst, src []byte) {
 	n := len(dst)
 
 	for i := 0; i < n/2; i++ {
@@ -57,7 +57,7 @@ func decodeVecImproved(dst, src []byte) {
 
 // decodeMatrix decodes a byte slice into a matrix of byte slices
 func decodeMatrix(rows, columns int, bytes []byte) [][]byte {
-	flatDecodedMatrix := decodeVec(rows*columns, bytes)
+	flatDecodedMatrix := decodeVecSlow(rows*columns, bytes)
 
 	decodedMatrix := make([][]byte, rows)
 	for i := 0; i < len(decodedMatrix); i++ {
@@ -65,64 +65,6 @@ func decodeMatrix(rows, columns int, bytes []byte) [][]byte {
 	}
 
 	return decodedMatrix
-}
-
-// decodeMatrices decodes a byte slice into a list of matrices of byte slices
-func decodeMatrices(m, r, c int, byteString []byte, isUpperTriangular bool) [][][]byte {
-	// Initialize the list of matrices with zero values
-	matrices := make([][][]byte, m)
-	for k := 0; k < m; k++ {
-		matrices[k] = make([][]byte, r)
-		for i := 0; i < r; i++ {
-			matrices[k][i] = make([]byte, c)
-		}
-	}
-
-	originalVecLength := m // Since each column has M elements
-	encodedVecLength := originalVecLength / 2
-	currentIndex := 0
-
-	for i := 0; i < r; i++ {
-		for j := 0; j < c; j++ {
-			if i <= j || !isUpperTriangular {
-				// Decode the next vector from the byte slice of nipples
-				currentEnd := currentIndex + encodedVecLength
-				decodedVec := decodeVec(m, byteString[currentIndex:currentEnd])
-
-				// Assign values to the matrices
-				for k, elem := range decodedVec {
-					matrices[k][i][j] = elem
-				}
-
-				currentIndex = currentEnd
-			}
-		}
-	}
-
-	return matrices
-}
-
-// encodeMatrices encodes a list of matrices of byte slices into a single byte slice. Makes use of the isUpperTriangular
-// flag to encode only the upper triangular part of the matrices
-func encodeMatrices(r, c int, matrices [][][]byte, isUpperTriangular bool) []byte {
-	var encoded []byte
-	m := len(matrices)
-
-	for i := 0; i < r; i++ {
-		for j := 0; j < c; j++ {
-			if i <= j || !isUpperTriangular {
-				vecToAppend := make([]byte, m)
-
-				for k := 0; k < m; k++ {
-					vecToAppend[k] = matrices[k][i][j]
-				}
-
-				encoded = append(encoded, encodeVec(vecToAppend)...)
-			}
-		}
-	}
-
-	return encoded
 }
 
 func uint64SliceToBytes(dst []byte, src []uint64) {

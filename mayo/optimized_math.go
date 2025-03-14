@@ -460,7 +460,7 @@ func (mayo *Mayo) computeA(mTemp []uint64, AOut []byte) {
 				offset := KO1*(r+i) + c
 				src := aBytes[(r/16*OKpadded+c+i)*8:]
 				dst := AOut[offset : offset+min(16, KO1-1-c)]
-				decodeVecImproved(dst, src)
+				decodeVec(dst, src)
 			}
 		}
 	}

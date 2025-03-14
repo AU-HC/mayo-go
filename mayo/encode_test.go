@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"crypto/rand"
 	"io"
-	"reflect"
 	"testing"
 )
 
@@ -46,7 +45,7 @@ func TestEncodeVecHandleOverflow(t *testing.T) {
 	b[n-1] = 0xff
 
 	encoded := encodeVec(b)
-	decoded := decodeVec(n, encoded)
+	decoded := decodeVecSlow(n, encoded)
 
 	// Ensure that encoding forces values inside field
 	for i := range b {
@@ -69,7 +68,7 @@ func TestDecodeVecOdd(t *testing.T) {
 	}
 
 	encoded := encodeVec(b)
-	decoded := decodeVec(n, encoded)
+	decoded := decodeVecSlow(n, encoded)
 
 	if !bytes.Equal(b, decoded) {
 		t.Error("Original and decoded is not the same", b, decoded)
@@ -87,7 +86,7 @@ func TestDecodeVecEven(t *testing.T) {
 	}
 
 	encoded := encodeVec(b)
-	decoded := decodeVec(n, encoded)
+	decoded := decodeVecSlow(n, encoded)
 
 	if !bytes.Equal(b, decoded) {
 		t.Error("Original and decoded is not the same", b, decoded)
@@ -106,37 +105,10 @@ func TestEncodeDecode(t *testing.T) {
 		}
 
 		encoded := encodeVec(b)
-		decoded := decodeVec(n, encoded)
+		decoded := decodeVecSlow(n, encoded)
 
 		if !bytes.Equal(b, decoded) {
 			t.Error("Original and decoded is not the same", b, decoded)
 		}
-	}
-}
-
-func TestEncodeDecodeMatrixListNonUpperTriangular(t *testing.T) {
-	rows := 5
-	columns := 5
-	m := 2
-	matrices := make([][][]byte, m)
-
-	for i := 0; i < 2; i++ {
-		matrix := make([][]byte, rows)
-		for j := 0; j < rows; j++ {
-			matrix[j] = make([]byte, columns)
-			reader := rand.Reader
-			_, _ = io.ReadFull(reader, matrix[j])
-			for k, elem := range matrix[j] {
-				matrix[j][k] = elem & 0xf
-			}
-		}
-		matrices[i] = matrix
-	}
-
-	encoded := encodeMatrices(rows, columns, matrices, false)
-	decoded := decodeMatrices(m, rows, columns, encoded, false)
-
-	if !reflect.DeepEqual(matrices, decoded) {
-		t.Error("Original and decoded is not the same", matrices, decoded)
 	}
 }
