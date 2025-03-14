@@ -2,13 +2,13 @@
 
 package mayo
 
-const n = 81
-const m = 64
+const N = 81
+const M = 64
 const mVecLimbs = 4
 const o = 17
-const v = n - o
-const aCols = k*o + 1
-const k = 4
+const v = N - o
+const aCols = K*o + 1
+const K = 4
 const q = 16
 const mBytes = 32
 const OBytes = 544

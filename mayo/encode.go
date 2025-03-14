@@ -17,8 +17,8 @@ func encodeVec(bytes []byte) []byte {
 	return encoded
 }
 
-// decodeVec decodes a byte slice into a byte slice of length n
-// where n is the length of the original byte slice (to accommodate for odd n)
+// decodeVec decodes a byte slice into a byte slice of length N
+// where N is the length of the original byte slice (to accommodate for odd N)
 func decodeVec(n int, byteString []byte) []byte {
 	decoded := make([]byte, n)
 
@@ -30,7 +30,7 @@ func decodeVec(n int, byteString []byte) []byte {
 		decoded[i*2+1] = secondNibble
 	}
 
-	// if 'n' is odd, then fix last nibble. Not second nibble present in the last byte
+	// if 'N' is odd, then fix last nibble. Not second nibble present in the last byte
 	if n%2 == 1 {
 		decoded[n-1] = byteString[n/2] & 0xf
 	}
@@ -61,7 +61,7 @@ func decodeMatrices(m, r, c int, byteString []byte, isUpperTriangular bool) [][]
 		}
 	}
 
-	originalVecLength := m // Since each column has m elements
+	originalVecLength := m // Since each column has M elements
 	encodedVecLength := originalVecLength / 2
 	currentIndex := 0
 

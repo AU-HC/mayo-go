@@ -42,7 +42,7 @@ func initMayo(n, m, o, k, q, saltBytes, digestBytes, pkSeedBytes int, tailF []by
 	if q != 16 {
 		panic("q is fixed to be 16, in this version of MAYO")
 	} else if k >= n-o {
-		panic("k should be smaller than n-o")
+		panic("K should be smaller than N-o")
 	}
 
 	skSeedBytes := saltBytes

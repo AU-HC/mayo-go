@@ -115,7 +115,7 @@ func (mayo *Mayo) computeP3(P1 []uint64, O [][]byte, P2 []uint64) []byte {
 	// First compute (P1 O + P2) and store in P2
 	mayo.matMulAdd(P1, O, P2, v, v, o, 1)
 	// Then compute P3 = O^t (P1 O + P2) and store in p3
-	var P3 [o * o * m / 16]uint64
+	var P3 [o * o * M / 16]uint64
 	mayo.mulAddMatTransMat(O, P2, P3[:], v, o, o)
 	// Compute upper of P3
 	var P3Upper [P3Bytes / 8]uint64
@@ -136,7 +136,7 @@ func (mayo *Mayo) computeL(P1 []uint64, O [][]byte, P2acc []uint64) []byte {
 				continue
 			}
 			bsMatStartIndex := bsMatEntriesUsed * mVecLimbs
-			for k := 0; k < mayo.o; k++ {
+			for k := 0; k < o; k++ {
 				mayo.vecMulAdd(P1, bsMatStartIndex, O[c][k], P2acc, (r*o+k)*mVecLimbs)
 				mayo.vecMulAdd(P1, bsMatStartIndex, O[r][k], P2acc, (c*o+k)*mVecLimbs)
 			}
@@ -190,41 +190,41 @@ func (mayo *Mayo) vecMultiplyBins(bins []uint64, binsStartIndex int, out []uint6
 }
 
 func (mayo *Mayo) calculatePS(P1 []uint64, P2 []uint64, P3 []uint64, s []byte, PS []uint64) {
-	acc := make([]uint64, 16*((m+15)/16)*k*n)
+	acc := make([]uint64, 16*((M+15)/16)*K*N)
 
 	p1Used := 0
 	for row := 0; row < v; row++ {
 		for j := row; j < v; j++ {
-			for col := 0; col < k; col++ {
+			for col := 0; col < K; col++ {
 				bsMatStartIndex := p1Used * mVecLimbs
-				accStartIndex := ((row*k+col)*16 + int(s[col*n+j])) * mVecLimbs
+				accStartIndex := ((row*K+col)*16 + int(s[col*N+j])) * mVecLimbs
 				mayo.vecAdd(P1, bsMatStartIndex, acc, accStartIndex)
 			}
 			p1Used += 1
 		}
 
 		for j := 0; j < o; j++ {
-			for col := 0; col < k; col++ {
+			for col := 0; col < K; col++ {
 				bsMatStartIndex := (row*o + j) * mVecLimbs
-				accStartIndex := ((row*k+col)*16 + int(s[(col*n)+j+v])) * mVecLimbs
+				accStartIndex := ((row*K+col)*16 + int(s[(col*N)+j+v])) * mVecLimbs
 				mayo.vecAdd(P2, bsMatStartIndex, acc, accStartIndex)
 			}
 		}
 	}
 
 	p3Used := 0
-	for row := v; row < n; row++ {
-		for j := row; j < n; j++ {
-			for col := 0; col < k; col++ {
+	for row := v; row < N; row++ {
+		for j := row; j < N; j++ {
+			for col := 0; col < K; col++ {
 				bsMatStartIndex := p3Used * mVecLimbs
-				accStartIndex := ((row*k+col)*16 + int(s[col*n+j])) * mVecLimbs
+				accStartIndex := ((row*K+col)*16 + int(s[col*N+j])) * mVecLimbs
 				mayo.vecAdd(P3, bsMatStartIndex, acc, accStartIndex)
 			}
 			p3Used += 1
 		}
 	}
 
-	for i := 0; i < n*k; i++ {
+	for i := 0; i < N*K; i++ {
 		bsMatStartIndex := i * mVecLimbs
 		accStartIndex := i * 16 * mVecLimbs
 		mayo.vecMultiplyBins(acc, accStartIndex, PS, bsMatStartIndex)
@@ -232,19 +232,19 @@ func (mayo *Mayo) calculatePS(P1 []uint64, P2 []uint64, P3 []uint64, s []byte, P
 }
 
 func (mayo *Mayo) calculateSPS(PS []uint64, s []byte, SPS []uint64) {
-	var acc [16 * ((m + 15) / 16) * k * k]uint64
+	var acc [16 * ((M + 15) / 16) * K * K]uint64
 
-	for row := 0; row < k; row++ {
-		for j := 0; j < n; j++ {
-			for col := 0; col < k; col++ {
-				bsMatStartIndex := (j*k + col) * mVecLimbs
-				accStartIndex := ((row*k+col)*16 + int(s[row*n+j])) * mVecLimbs
+	for row := 0; row < K; row++ {
+		for j := 0; j < N; j++ {
+			for col := 0; col < K; col++ {
+				bsMatStartIndex := (j*K + col) * mVecLimbs
+				accStartIndex := ((row*K+col)*16 + int(s[row*N+j])) * mVecLimbs
 				mayo.vecAdd(PS, bsMatStartIndex, acc[:], accStartIndex)
 			}
 		}
 	}
 
-	for i := 0; i < k*k; i++ {
+	for i := 0; i < K*K; i++ {
 		bsMatStartIndex := i * mVecLimbs
 		accStartIndex := i * 16 * mVecLimbs
 		mayo.vecMultiplyBins(acc[:], accStartIndex, SPS, bsMatStartIndex)
@@ -252,13 +252,13 @@ func (mayo *Mayo) calculateSPS(PS []uint64, s []byte, SPS []uint64) {
 }
 
 func (mayo *Mayo) calculatePsSps(P1 []uint64, P2 []uint64, P3 []uint64, s []byte, SPS []uint64) {
-	var PS [n * k * 4]uint64
+	var PS [N * K * 4]uint64
 	mayo.calculatePS(P1, P2, P3, s, PS[:])
 	mayo.calculateSPS(PS[:], s, SPS)
 }
 
 func (mayo *Mayo) computeRhs(VPV []uint64, t, y []byte) {
-	topPos := ((m - 1) % 16) * 4
+	topPos := ((M - 1) % 16) * 4
 
 	// TODO: zero out fails of m_vectors if necessary (not needed for mayo2 as 64 % 16 == 0)
 	// here
@@ -267,8 +267,8 @@ func (mayo *Mayo) computeRhs(VPV []uint64, t, y []byte) {
 
 	temp := make([]uint64, mVecLimbs)
 	tempBytes := unsafe.Slice((*byte)(unsafe.Pointer(&temp[0])), len(temp)*8)
-	for i := k - 1; i >= 0; i-- {
-		for j := i; j < k; j++ {
+	for i := K - 1; i >= 0; i-- {
+		for j := i; j < K; j++ {
 			// multiply
 			top := byte((temp[mVecLimbs-1] >> topPos) % 16)
 			temp[mVecLimbs-1] <<= 4
@@ -293,22 +293,22 @@ func (mayo *Mayo) computeRhs(VPV []uint64, t, y []byte) {
 					ij = 1
 				}
 
-				temp[k] ^= VPV[(i*mayo.k+j)*mVecLimbs+k] ^ ((ij) * VPV[(j*mayo.k+i)*mVecLimbs+k])
+				temp[k] ^= VPV[(i*K+j)*mVecLimbs+k] ^ ((ij) * VPV[(j*K+i)*mVecLimbs+k])
 			}
 		}
 	}
 
 	// compute y
-	for i := 0; i < mayo.m; i += 2 {
+	for i := 0; i < M; i += 2 {
 		y[i] = t[i] ^ (tempBytes[i/2] & 0xF)
 		y[i+1] = t[i+1] ^ (tempBytes[i/2] >> 4)
 	}
 }
 
 func (mayo *Mayo) evalPublicMap(s []byte, P1 []uint64, P2 []uint64, P3 []uint64, eval []byte) {
-	var SPS [k * k * mVecLimbs]uint64
+	var SPS [K * K * mVecLimbs]uint64
 	mayo.calculatePsSps(P1, P2, P3, s, SPS[:])
-	zero := make([]byte, m)
+	zero := make([]byte, M)
 	mayo.computeRhs(SPS[:], zero, eval)
 }
 
@@ -322,12 +322,12 @@ func (mayo *Mayo) mulAddMatXMMat(v []byte, L []uint64, acc []uint64, matRows, ma
 	}
 }
 
-func (mayo *Mayo) P1MulVt(P1 []uint64, v []byte, Pv []uint64) {
+func (mayo *Mayo) P1MulVt(P1 []uint64, vDec []byte, Pv []uint64) {
 	bsMatEntriesUsed := 0
-	for r := 0; r < mayo.v; r++ {
-		for c := 1 * r; c < mayo.v; c++ {
-			for k := 0; k < mayo.k; k++ {
-				mayo.vecMulAdd(P1, mVecLimbs*bsMatEntriesUsed, v[k*mayo.v+c], Pv, mVecLimbs*(r*mayo.k+k))
+	for r := 0; r < v; r++ {
+		for c := 1 * r; c < v; c++ {
+			for k := 0; k < K; k++ {
+				mayo.vecMulAdd(P1, mVecLimbs*bsMatEntriesUsed, vDec[k*v+c], Pv, mVecLimbs*(r*K+k))
 			}
 			bsMatEntriesUsed++
 		}
@@ -336,12 +336,12 @@ func (mayo *Mayo) P1MulVt(P1 []uint64, v []byte, Pv []uint64) {
 
 func (mayo *Mayo) computeMAndVpv(vDec []byte, L, P1, VL, A []uint64) {
 	// Compute VL
-	mayo.mulAddMatXMMat(vDec, L, VL, k, v, o)
+	mayo.mulAddMatXMMat(vDec, L, VL, K, v, o)
 
 	// Compute VP1V
-	var Pv [v * k * mVecLimbs]uint64
+	var Pv [v * K * mVecLimbs]uint64
 	mayo.P1MulVt(P1, vDec, Pv[:])
-	mayo.mulAddMatXMMat(vDec, Pv[:], A, k, v, k)
+	mayo.mulAddMatXMMat(vDec, Pv[:], A, K, v, K)
 }
 
 func (mayo *Mayo) Transpose16x16Nibbles(M []uint64, c int) {
@@ -383,34 +383,34 @@ func (mayo *Mayo) Transpose16x16Nibbles(M []uint64, c int) {
 }
 
 func (mayo *Mayo) computeA(mTemp []uint64, AOut []byte) {
-	mayoMOver8 := (m + 7) / 8
+	mayoMOver8 := (M + 7) / 8
 	bitsToShift := 0
 	wordsToShift := 0
-	AWidth := ((o*k + 15) / 16) * 16
-	A := make([]uint64, (((o*k+15)/16)*16)*mayoMOver8)
+	AWidth := ((o*K + 15) / 16) * 16
+	A := make([]uint64, (((o*K+15)/16)*16)*mayoMOver8)
 
 	// TODO: zero out fails of m_vectors if necessary (not needed for mayo2 as 64 % 16 == 0)
 	// here
 	// here
 	// here
 
-	for i := 0; i < mayo.k; i++ {
-		for j := mayo.k - 1; j >= i; j-- {
-			for c := 0; c < mayo.o; c++ {
+	for i := 0; i < K; i++ {
+		for j := K - 1; j >= i; j-- {
+			for c := 0; c < o; c++ {
 				for k := 0; k < mVecLimbs; k++ {
-					A[mayo.o*i+c+(k+wordsToShift)*AWidth] ^= mTemp[j*mVecLimbs*mayo.o+k+c*mVecLimbs] << bitsToShift
+					A[o*i+c+(k+wordsToShift)*AWidth] ^= mTemp[j*mVecLimbs*o+k+c*mVecLimbs] << bitsToShift
 					if bitsToShift > 0 {
-						A[mayo.o*i+c+(k+wordsToShift+1)*AWidth] ^= mTemp[j*mVecLimbs*mayo.o+k+c*mVecLimbs] >> (64 - bitsToShift)
+						A[o*i+c+(k+wordsToShift+1)*AWidth] ^= mTemp[j*mVecLimbs*o+k+c*mVecLimbs] >> (64 - bitsToShift)
 					}
 				}
 			}
 
 			if i != j {
-				for c := 0; c < mayo.o; c++ {
+				for c := 0; c < o; c++ {
 					for k := 0; k < mVecLimbs; k++ {
-						A[mayo.o*j+c+(k+wordsToShift)*AWidth] ^= mTemp[i*mVecLimbs*mayo.o+k+c*mVecLimbs] << bitsToShift
+						A[o*j+c+(k+wordsToShift)*AWidth] ^= mTemp[i*mVecLimbs*o+k+c*mVecLimbs] << bitsToShift
 						if bitsToShift > 0 {
-							A[mayo.o*j+c+(k+wordsToShift+1)*AWidth] ^= mTemp[i*mVecLimbs*mayo.o+k+c*mVecLimbs] >> (64 - bitsToShift)
+							A[o*j+c+(k+wordsToShift+1)*AWidth] ^= mTemp[i*mVecLimbs*o+k+c*mVecLimbs] >> (64 - bitsToShift)
 						}
 					}
 				}
@@ -424,11 +424,11 @@ func (mayo *Mayo) computeA(mTemp []uint64, AOut []byte) {
 		}
 	}
 
-	for c := 0; c < AWidth*((m+(k+1)*k/2+15)/16); c += 16 {
+	for c := 0; c < AWidth*((M+(K+1)*K/2+15)/16); c += 16 {
 		mayo.Transpose16x16Nibbles(A, c)
 	}
 
-	tab := make([]byte, len(mayo.tailF)*4)
+	tab := make([]byte, len(mayo.tailF)*4) // TODO: mVecLimbs
 	for i := 0; i < len(mayo.tailF); i++ {
 		tab[4*i] = mayo.field.Gf16Mul(mayo.tailF[i], 1)
 		tab[4*i+1] = mayo.field.Gf16Mul(mayo.tailF[i], 2)
@@ -438,14 +438,14 @@ func (mayo *Mayo) computeA(mTemp []uint64, AOut []byte) {
 
 	lowBitInNibble := uint64(0x1111111111111111)
 	for c := 0; c < AWidth; c += 16 {
-		for r := m; r < m+(k+1)*k/2; r++ {
+		for r := M; r < M+(K+1)*K/2; r++ {
 			pos := (r/16)*AWidth + c + (r % 16)
 			t0 := A[pos] & lowBitInNibble
 			t1 := (A[pos] >> 1) & lowBitInNibble
 			t2 := (A[pos] >> 2) & lowBitInNibble
 			t3 := (A[pos] >> 3) & lowBitInNibble
 			for t := 0; t < len(mayo.tailF); t++ {
-				A[((r+t-m)/16)*AWidth+c+((r+t-m)%16)] ^= t0*uint64(tab[4*t+0]) ^ t1*uint64(tab[4*t+1]) ^ t2*uint64(tab[4*t+2]) ^ t3*uint64(tab[4*t+3])
+				A[((r+t-M)/16)*AWidth+c+((r+t-M)%16)] ^= t0*uint64(tab[4*t+0]) ^ t1*uint64(tab[4*t+1]) ^ t2*uint64(tab[4*t+2]) ^ t3*uint64(tab[4*t+3])
 			}
 		}
 	}
@@ -453,9 +453,9 @@ func (mayo *Mayo) computeA(mTemp []uint64, AOut []byte) {
 	aBytes := make([]byte, len(A)*8)
 	uint64SliceToBytes(aBytes[:], A[:])
 
-	OKpadded := (k*o + 15) / 16 * 16
-	KO1 := k*o + 1
-	for r := 0; r < m; r += 16 {
+	OKpadded := (K*o + 15) / 16 * 16
+	KO1 := K*o + 1
+	for r := 0; r < M; r += 16 {
 		for c := 0; c < KO1-1; c += 16 {
 			for i := 0; i < 16; i++ {
 				src := aBytes[(r/16*OKpadded+c+i)*8:]

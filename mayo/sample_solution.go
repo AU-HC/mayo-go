@@ -7,32 +7,32 @@ func (mayo *Mayo) sampleSolution(A, y, r, x []byte) bool {
 	copy(x, r)
 
 	// compute Ar;
-	var Ar [m]byte
-	for i := 0; i < m; i++ {
-		A[k*o+i*(k*o+1)] = 0 // clear last col of A
+	var Ar [M]byte
+	for i := 0; i < M; i++ {
+		A[K*o+i*(K*o+1)] = 0 // clear last col of A
 	}
-	mayo.matMul(A, r, Ar[:], k*o+1, m, 1)
+	mayo.matMul(A, r, Ar[:], K*o+1, M, 1)
 
 	// move y - Ar to last column of matrix A
-	for i := 0; i < m; i++ {
-		A[k*o+i*(k*o+1)] = y[i] ^ Ar[i]
+	for i := 0; i < M; i++ {
+		A[K*o+i*(K*o+1)] = y[i] ^ Ar[i]
 	}
 
-	mayo.echelonForm(A, m, k*o+1)
+	mayo.echelonForm(A, M, K*o+1)
 
 	// check if last row of A (excluding the last entry of y) is zero
 	var fullRank byte
 	for i := 0; i < aCols-1; i++ {
-		fullRank |= A[(m-1)*aCols+i]
+		fullRank |= A[(M-1)*aCols+i]
 	}
 
 	if fullRank == 0 {
 		return false
 	}
 
-	for row := m - 1; row >= 0; row-- {
+	for row := M - 1; row >= 0; row-- {
 		var finished byte
-		colUpperBound := min(row+(32/(m-row)), k*o)
+		colUpperBound := min(row+(32/(M-row)), K*o)
 
 		for col := row; col <= colUpperBound; col++ {
 			correctColumn := mayo.ctCompare8(A[row*aCols+col], 0) & ^finished
@@ -70,9 +70,9 @@ func (mayo *Mayo) sampleSolution(A, y, r, x []byte) bool {
 }
 
 func (mayo *Mayo) echelonForm(A []byte, nRows int, nCols int) {
-	pivotRowData := make([]uint64, (k*o+1+15)/16)
-	pivotRowData2 := make([]uint64, (k*o+1+15)/16)
-	packedA := make([]uint64, (k*o+1+15)/16*m)
+	pivotRowData := make([]uint64, (K*o+1+15)/16)
+	pivotRowData2 := make([]uint64, (K*o+1+15)/16)
+	packedA := make([]uint64, (K*o+1+15)/16*M)
 
 	rowLen := (nCols + 15) / 16
 
@@ -130,7 +130,7 @@ func (mayo *Mayo) echelonForm(A []byte, nRows int, nCols int) {
 		pivotRow += -int(^pivotIsZero)
 	}
 
-	var temp [o*k + 1 + 15]byte
+	var temp [o*K + 1 + 15]byte
 	// unbitslice the matrix A
 	for i := 0; i < nRows; i++ {
 		efUnpackMVec(rowLen, packedA, i*rowLen, temp[:])
