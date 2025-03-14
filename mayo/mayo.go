@@ -13,7 +13,8 @@ func (mayo *Mayo) CompactKeyGen() ([]byte, []byte, error) {
 	seedSk := rand.SampleRandomBytes(skSeedBytes)
 
 	// Derive seedPk and O from seekSk
-	s := rand.SHAKE256(pkSeedBytes+OBytes, seedSk)
+	var s [pkSeedBytes + OBytes]byte
+	rand.SHAKE256(s[:], seedSk)
 	seedPk := s[:pkSeedBytes]
 	O := decodeMatrix(v, o, s[pkSeedBytes:pkSeedBytes+OBytes])
 
@@ -41,9 +42,10 @@ func (mayo *Mayo) ExpandSK(csk []byte) []byte {
 	seedSk := csk[:skSeedBytes]
 
 	// Derive seedPk and O from seedSk
-	S := rand.SHAKE256(pkSeedBytes+OBytes, seedSk)
-	seedPk := S[:pkSeedBytes]
-	oByteString := S[pkSeedBytes : pkSeedBytes+OBytes]
+	var s [pkSeedBytes + OBytes]byte
+	rand.SHAKE256(s[:], seedSk)
+	seedPk := s[:pkSeedBytes]
+	oByteString := s[pkSeedBytes : pkSeedBytes+OBytes]
 	O := decodeMatrix(v, o, oByteString)
 
 	// Derive P1 and P2 from seedPk
@@ -70,10 +72,12 @@ func (mayo *Mayo) ExpandSK(csk []byte) []byte {
 func (mayo *Mayo) ExpandPK(cpk []byte) []byte {
 	// Parse cpk
 	seedPk := cpk[:pkSeedBytes]
+	var p1p2Bytes [P1Bytes + P2Bytes]byte
+	rand.AES128CTR(seedPk, p1p2Bytes[:])
 
 	// Expand seedPk and return epk
 	var epk [epkBytes]byte
-	copy(epk[:P1Bytes+P2Bytes], rand.AES128CTR(seedPk, P1Bytes+P2Bytes))
+	copy(epk[:P1Bytes+P2Bytes], p1p2Bytes[:])
 	copy(epk[P1Bytes+P2Bytes:], cpk[pkSeedBytes:pkSeedBytes+P3Bytes])
 	return epk[:]
 }
@@ -90,11 +94,13 @@ func (mayo *Mayo) Sign(esk, message []byte) []byte {
 	bytesToUint64Slice(L[:], esk[skSeedBytes+OBytes+P1Bytes:eskBytes])
 
 	// Hash the message, and derive salt and t
-	mDigest := rand.SHAKE256(digestBytes, message)
+	var mDigest [digestBytes]byte
+	rand.SHAKE256(mDigest[:], message)
 	R := rand.SampleRandomBytes(rBytes)
-	salt := rand.SHAKE256(saltBytes, mDigest, R, seedSk)
+	var salt [saltBytes]byte
+	rand.SHAKE256(salt[:], mDigest[:], R, seedSk)
 	var t [M]byte
-	decodeVecImproved(t[:], rand.SHAKE256(mayo.intTimesLogQ(M), mDigest, salt))
+	decodeVecImproved(t[:], rand.SHAKE256Slow(mayo.intTimesLogQ(M), mDigest[:], salt[:]))
 
 	// Attempt to find a preimage for t
 	var mTemp [K * o * mVecLimbs]uint64
@@ -103,7 +109,7 @@ func (mayo *Mayo) Sign(esk, message []byte) []byte {
 	for ctr := 0; ctr < 256; ctr++ {
 		// Derive v_i and r
 		ctrForShake := []byte{byte(ctr)}
-		V := rand.SHAKE256(K*vBytes+mayo.intTimesLogQ(K, o), mDigest, salt, seedSk, ctrForShake)
+		V := rand.SHAKE256Slow(K*vBytes+mayo.intTimesLogQ(K, o), mDigest[:], salt[:], seedSk, ctrForShake)
 		for i := 0; i < K; i++ {
 			decoded := decodeVec(v, V[i*vBytes:(i+1)*vBytes])
 			offset := i * len(decoded)
@@ -144,7 +150,7 @@ func (mayo *Mayo) Sign(esk, message []byte) []byte {
 	// Finish and output the signature
 	var sig [sigBytes]byte
 	copy(sig[:], encodeVec(s[:]))
-	copy(sig[sigBytes-saltBytes:], salt)
+	copy(sig[sigBytes-saltBytes:], salt[:])
 	return sig[:]
 }
 
@@ -165,9 +171,10 @@ func (mayo *Mayo) Verify(epk, message, sig []byte) int {
 	s := decodeVec(K*N, sig)
 
 	// Hash the message and derive t
-	mDigest := rand.SHAKE256(digestBytes, message)
+	var mDigest [digestBytes]byte
+	rand.SHAKE256(mDigest[:], message)
 	var t [M]byte
-	decodeVecImproved(t[:], rand.SHAKE256(mayo.intTimesLogQ(M), mDigest, salt))
+	decodeVecImproved(t[:], rand.SHAKE256Slow(mayo.intTimesLogQ(M), mDigest[:], salt))
 
 	// Compute P^*(s)
 	var y [2 * M]byte

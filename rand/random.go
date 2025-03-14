@@ -28,13 +28,11 @@ func SampleRandomBytes(length int) []byte {
 	return value
 }
 
-func AES128CTR(seed []byte, l int) []byte {
+func AES128CTR(seed, dst []byte) {
 	var nonce [16]byte
 	block, _ := aes.NewCipher(seed[:])
 	ctr := cipher.NewCTR(block, nonce[:])
-	dst := make([]byte, l)
 	ctr.XORKeyStream(dst[:], dst[:])
-	return dst
 }
 
 func AES128CTR64(seed []byte, l int) []uint64 {
@@ -57,7 +55,7 @@ func AES128CTR64(seed []byte, l int) []uint64 {
 	return result
 }
 
-func SHAKE256(outputLength int, inputs ...[]byte) []byte {
+func SHAKE256Slow(outputLength int, inputs ...[]byte) []byte {
 	output := make([]byte, outputLength)
 
 	h := sha3.NewSHAKE256()
@@ -67,4 +65,12 @@ func SHAKE256(outputLength int, inputs ...[]byte) []byte {
 	_, _ = h.Read(output[:])
 
 	return output
+}
+
+func SHAKE256(dst []byte, inputs ...[]byte) {
+	h := sha3.NewSHAKE256()
+	for _, input := range inputs {
+		_, _ = h.Write(input[:])
+	}
+	_, _ = h.Read(dst[:])
 }
