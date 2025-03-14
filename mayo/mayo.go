@@ -200,16 +200,16 @@ func (mayo *Mayo) APISignOpen(sm []byte, pk []byte) (int, []byte) {
 	epk := mayo.ExpandPK(pk)
 
 	// Parse the signed message
-	sig, M := sm[:sigBytes], sm[sigBytes:]
+	sig, message := sm[:sigBytes], sm[sigBytes:]
 
 	// Verify the signature
-	result := mayo.Verify(epk, M, sig)
+	result := mayo.Verify(epk, message, sig)
 
 	// Return result and message
 	if result < 0 {
 		return result, nil
 	}
-	return result, M
+	return result, message
 }
 
 func (mayo *Mayo) intTimesLogQ(ints ...int) int {

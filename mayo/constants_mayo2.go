@@ -1,4 +1,4 @@
-//go:build mayo
+//go:build mayo2
 
 package mayo
 
