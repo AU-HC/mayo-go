@@ -2,16 +2,16 @@ package mayo
 
 import "unsafe"
 
-func (mayo *Mayo) sampleSolution(A, y, r, x []byte, k, o, m, aCols int) bool {
+func (mayo *Mayo) sampleSolution(A, y, r, x []byte) bool {
 	// x <- r
 	copy(x, r)
 
 	// compute Ar;
-	Ar := make([]byte, m)
+	var Ar [m]byte
 	for i := 0; i < m; i++ {
 		A[k*o+i*(k*o+1)] = 0 // clear last col of A
 	}
-	mayo.matMul(A, r, Ar, k*o+1, m, 1)
+	mayo.matMul(A, r, Ar[:], k*o+1, m, 1)
 
 	// move y - Ar to last column of matrix A
 	for i := 0; i < m; i++ {
@@ -70,9 +70,9 @@ func (mayo *Mayo) sampleSolution(A, y, r, x []byte, k, o, m, aCols int) bool {
 }
 
 func (mayo *Mayo) echelonForm(A []byte, nRows int, nCols int) {
-	pivotRowData := make([]uint64, (mayo.k*mayo.o+1+15)/16)
-	pivotRowData2 := make([]uint64, (mayo.k*mayo.o+1+15)/16)
-	packedA := make([]uint64, (mayo.k*mayo.o+1+15)/16*mayo.m)
+	pivotRowData := make([]uint64, (k*o+1+15)/16)
+	pivotRowData2 := make([]uint64, (k*o+1+15)/16)
+	packedA := make([]uint64, (k*o+1+15)/16*m)
 
 	rowLen := (nCols + 15) / 16
 
@@ -130,10 +130,10 @@ func (mayo *Mayo) echelonForm(A []byte, nRows int, nCols int) {
 		pivotRow += -int(^pivotIsZero)
 	}
 
-	temp := make([]byte, mayo.o*mayo.k+1+15)
+	var temp [o*k + 1 + 15]byte
 	// unbitslice the matrix A
 	for i := 0; i < nRows; i++ {
-		efUnpackMVec(rowLen, packedA, i*rowLen, temp)
+		efUnpackMVec(rowLen, packedA, i*rowLen, temp[:])
 		for j := 0; j < nCols; j++ {
 			A[i*nCols+j] = temp[j]
 		}

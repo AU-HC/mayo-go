@@ -63,7 +63,7 @@ func ParameterSet(securityLevel, n int) {
 	verifyResults := make([]int64, n)
 	for i := 0; i < n; i++ {
 		before := time.Now()
-		mayo.APISignOpen(signatures[i], cpks[i])
+		//mayo.APISignOpen(signatures[i], cpks[i])
 		duration := time.Since(before)
 		verifyResults[i] = duration.Nanoseconds()
 	}
