@@ -11,6 +11,9 @@ import (
 const directory = "benchmark/results"
 const fileName = "results.json"
 
+const amountOfExpandPkRuns = 30
+const amountOfVerifyRuns = 10
+
 func ParameterSet(n int) {
 	// Initialize MAYO with the security level
 	message := make([]byte, 32)
@@ -42,8 +45,10 @@ func ParameterSet(n int) {
 	expandPKResults := make([]int64, n)
 	for i := 0; i < n; i++ {
 		before := time.Now()
-		mayo.ExpandPK(cpks[i])
-		duration := time.Since(before)
+		for j := 0; j < amountOfExpandPkRuns; j++ {
+			mayo.ExpandPK(cpks[i])
+		}
+		duration := time.Since(before) / amountOfExpandPkRuns
 		expandPKResults[i] = duration.Nanoseconds()
 	}
 
@@ -62,8 +67,10 @@ func ParameterSet(n int) {
 	verifyResults := make([]int64, n)
 	for i := 0; i < n; i++ {
 		before := time.Now()
-		//mayo.APISignOpen(signatures[i], cpks[i])
-		duration := time.Since(before)
+		for j := 0; j < amountOfVerifyRuns; j++ {
+			mayo.APISignOpen(signatures[i], cpks[i])
+		}
+		duration := time.Since(before) / amountOfVerifyRuns
 		verifyResults[i] = duration.Nanoseconds()
 	}
 
@@ -81,7 +88,7 @@ func ParameterSet(n int) {
 	if err != nil {
 		panic(err)
 	}
-	err = os.WriteFile(fmt.Sprintf("%s/paramset-%d-%s-%s",
+	err = os.WriteFile(fmt.Sprintf("%s/%s-%s",
 		directory, time.Now().Format("2006-01-02-15-04-05"), fileName), resultsJson, 0644)
 	if err != nil {
 		panic(err)
