@@ -1,32 +1,31 @@
-package benchmark
+package mayo
 
 import (
 	"encoding/json"
 	"fmt"
-	crypto "mayo-go/mayo"
 	"os"
 	"time"
 )
 
-const directory = "benchmark/results"
+const directory = "results"
 const fileName = "results.json"
-
 const amountOfExpandPkRuns = 30
 const amountOfVerifyRuns = 10
 
-func ParameterSet(n int) {
-	// Initialize MAYO with the security level
+type Results struct {
+	KeyGen, ExpandSK, ExpandPK, Sign, Verify []int64
+}
+
+func Benchmark(n int) (string, error) {
+	// Initialize MAYO
 	message := make([]byte, 32)
-	mayo := crypto.InitMayo()
+	mayo := InitMayo()
 
 	// Benchmark CompactKeyGen
 	keyGenResults := make([]int64, n)
 	for i := 0; i < n; i++ {
 		before := time.Now()
-		_, _, err := mayo.CompactKeyGen()
-		if err != nil {
-			return
-		}
+		mayo.CompactKeyGen()
 		duration := time.Since(before)
 		keyGenResults[i] = duration.Nanoseconds()
 	}
@@ -88,16 +87,19 @@ func ParameterSet(n int) {
 	if err != nil {
 		panic(err)
 	}
-	err = os.WriteFile(fmt.Sprintf("%s/%s-%s",
-		directory, time.Now().Format("2006-01-02-15-04-05"), fileName), resultsJson, 0644)
+	pathToResults := fmt.Sprintf("%s/%s-%s", directory, time.Now().Format("2006-01-02-15-04-05"), fileName)
+	fmt.Println(pathToResults)
+	err = os.WriteFile(pathToResults, resultsJson, 0644)
 	if err != nil {
 		panic(err)
 	}
+
+	return pathToResults, nil
 }
 
-func generateCompactKeys(mayo *crypto.Mayo, n int) ([][]byte, [][]byte) {
-	cpks := make([][]byte, n)
-	csks := make([][]byte, n)
+func generateCompactKeys(mayo *Mayo, n int) ([][cpkBytes]byte, [][cskBytes]byte) {
+	cpks := make([][cpkBytes]byte, n)
+	csks := make([][cskBytes]byte, n)
 	for i := 0; i < n; i++ {
 		cpk, csk, err := mayo.CompactKeyGen()
 		if err != nil {

@@ -33,12 +33,12 @@ func CheckMayoKat(fileName string, t *testing.T) {
 
 		epk, esk, _ := mayo.CompactKeyGen()
 
-		if !bytes.Equal(epk, katData.pk) {
+		if !bytes.Equal(epk[:], katData.pk) {
 			t.Error(fmt.Sprintf("Generated PK and KAT PK are not equal for iteration: %d:\n Got      %v\n Expected %v", katData.count, epk, katData.pk))
 			return
 		}
 
-		if !bytes.Equal(esk, katData.sk) {
+		if !bytes.Equal(esk[:], katData.sk) {
 			t.Error(fmt.Sprintf("Generated SK and KAT SK are not equal for iteration: %d:\n Got      %v\n Expected %v", katData.count, esk, katData.sk))
 			return
 		}

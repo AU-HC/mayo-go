@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/hex"
 	"fmt"
-	"mayo-go/benchmark"
 	"mayo-go/flags"
 	crypto "mayo-go/mayo"
 	"time"
@@ -16,7 +15,7 @@ func main() {
 
 	// If amount of samples
 	if amountOfBenchmarkSamples > 0 {
-		benchmark.ParameterSet(amountOfBenchmarkSamples) // TODO: Return filename?
+		crypto.Benchmark(amountOfBenchmarkSamples) // TODO: Return filename?
 		fmt.Println("Benchmarking done, see benchmark/results for more information")
 		return
 	}

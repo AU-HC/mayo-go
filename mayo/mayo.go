@@ -8,7 +8,7 @@ import (
 
 // CompactKeyGen (Algorithm 4) outputs compact representation of a secret key csk and public key cpk. Will instead
 // return an error, if it fails to generate random bytes.
-func (mayo *Mayo) CompactKeyGen() ([]byte, []byte, error) {
+func (mayo *Mayo) CompactKeyGen() ([cpkBytes]byte, [cskBytes]byte, error) {
 	// Pick seekSk at random
 	var seedSk [skSeedBytes]byte
 	rand.SampleRandomBytes(seedSk[:])
@@ -34,11 +34,11 @@ func (mayo *Mayo) CompactKeyGen() ([]byte, []byte, error) {
 	csk := seedSk
 
 	// Output keys
-	return cpk[:], csk[:], nil
+	return cpk, csk, nil
 }
 
 // ExpandSK (Algorithm 5) takes the compacted secret key csk and outputs an expanded secret key esk
-func (mayo *Mayo) ExpandSK(csk []byte) []byte {
+func (mayo *Mayo) ExpandSK(csk [cskBytes]byte) [eskBytes]byte {
 	// Parse csk
 	seedSk := csk[:skSeedBytes]
 
@@ -66,11 +66,11 @@ func (mayo *Mayo) ExpandSK(csk []byte) []byte {
 	copy(esk[skSeedBytes:], oByteString)
 	copy(esk[skSeedBytes+OBytes:], p1Bytes[:])
 	copy(esk[skSeedBytes+OBytes+P1Bytes:], lByteArray)
-	return esk[:]
+	return esk
 }
 
 // ExpandPK (Algorithm 6) takes the compacted public key csk and outputs an expanded public key epk
-func (mayo *Mayo) ExpandPK(cpk []byte) []byte {
+func (mayo *Mayo) ExpandPK(cpk [cpkBytes]byte) [epkBytes]byte {
 	// Parse cpk
 	seedPk := cpk[:pkSeedBytes]
 	var p1p2Bytes [P1Bytes + P2Bytes]byte
@@ -80,11 +80,11 @@ func (mayo *Mayo) ExpandPK(cpk []byte) []byte {
 	var epk [epkBytes]byte
 	copy(epk[:P1Bytes+P2Bytes], p1p2Bytes[:])
 	copy(epk[P1Bytes+P2Bytes:], cpk[pkSeedBytes:pkSeedBytes+P3Bytes])
-	return epk[:]
+	return epk
 }
 
 // Sign (Algorithm 7) takes an expanded secret key esk and a message M and outputs a signature on the message M
-func (mayo *Mayo) Sign(esk, message []byte) []byte {
+func (mayo *Mayo) Sign(esk [eskBytes]byte, message []byte) []byte {
 	// Decode esk
 	seedSk := esk[:skSeedBytes]
 	var O [v * o]byte
@@ -156,7 +156,7 @@ func (mayo *Mayo) Sign(esk, message []byte) []byte {
 
 // Verify (Algorithm 8) takes an expanded public key, message M, and signature sig and outputs an integer to indicate
 // if the signature is valid on M. Specifically if the signature is valid it will output 0, if invalid < 0.
-func (mayo *Mayo) Verify(epk, message, sig []byte) int {
+func (mayo *Mayo) Verify(epk [epkBytes]byte, message, sig []byte) int {
 	// Decode epk
 	var P1 [P1Bytes / 8]uint64
 	var P2 [P2Bytes / 8]uint64
@@ -190,7 +190,7 @@ func (mayo *Mayo) Verify(epk, message, sig []byte) int {
 
 // APISign (Algorithm 9) Takes a secret sk and message, it then expands the SK and calls Sign with the expanded secret key
 // to produce the signature. It then outputs sig || M
-func (mayo *Mayo) APISign(M, sk []byte) []byte {
+func (mayo *Mayo) APISign(M []byte, sk [cskBytes]byte) []byte {
 	// Expand the SK
 	esk := mayo.ExpandSK(sk)
 
@@ -206,7 +206,7 @@ func (mayo *Mayo) APISign(M, sk []byte) []byte {
 
 // APISignOpen (Algorithm 10) Takes a signed message sig || M as input and expands the public key, which then calls
 // Verify to check if the signature is valid. It returns the result and message if the signature is valid
-func (mayo *Mayo) APISignOpen(sm []byte, pk []byte) (int, []byte) {
+func (mayo *Mayo) APISignOpen(sm []byte, pk [cpkBytes]byte) (int, []byte) {
 	// Expand the PK
 	epk := mayo.ExpandPK(pk)
 
