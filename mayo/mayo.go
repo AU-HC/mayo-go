@@ -110,8 +110,7 @@ func (mayo *Mayo) Sign(esk, message []byte) []byte {
 	var vDec [K * v]byte
 	for ctr := 0; ctr < 256; ctr++ {
 		// Derive v_i and r
-		ctrForShake := []byte{byte(ctr)}
-		V := rand.SHAKE256Slow(K*vBytes+mayo.intTimesLogQ(K, o), mDigest[:], salt[:], seedSk, ctrForShake)
+		V := rand.SHAKE256Slow(K*vBytes+mayo.intTimesLogQ(K, o), mDigest[:], salt[:], seedSk, []byte{byte(ctr)})
 		for i := 0; i < K; i++ {
 			offset := i * v
 			decodeVec(vDec[offset:offset+v], V[i*vBytes:(i+1)*vBytes])
