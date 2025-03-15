@@ -13,7 +13,7 @@ func TestKat1(t *testing.T) {
 }
 
 func TestKat2(t *testing.T) {
-	CheckMayoKat("kat_files/PQCsignKAT_24_MAYO_2.rsp", 2, t)
+	CheckMayoKat("kat_files/PQCsignKAT_24_MAYO_2.rsp", t)
 }
 
 func TestKat3(t *testing.T) {
@@ -24,12 +24,9 @@ func TestKat5(t *testing.T) {
 	//CheckMayoKat("kat_files/PQCsignKAT_40_MAYO_5.rsp", 5, t)
 }
 
-func CheckMayoKat(fileName string, securityLevel int, t *testing.T) {
+func CheckMayoKat(fileName string, t *testing.T) {
 	katDataList := parseKatData(fileName)
-	mayo, err := standard.InitMayo(securityLevel)
-	if err != nil {
-		t.Error(err)
-	}
+	mayo := standard.InitMayo()
 
 	for _, katData := range katDataList {
 		rand.InitRandomness(katData.seed, make([]byte, 48), 256)
@@ -48,7 +45,7 @@ func CheckMayoKat(fileName string, securityLevel int, t *testing.T) {
 
 		sig := mayo.APISign(katData.message, esk)
 		if !bytes.Equal(sig, katData.signature) {
-			//t.Error(fmt.Sprintf("Generated signature and KAT signature are not equal for iteration: %d:\n Got      %v\n Expected %v", katData.count, sig, katData.signature))
+			t.Error(fmt.Sprintf("Generated signature and KAT signature are not equal for iteration: %d:\n Got      %v\n Expected %v", katData.count, sig, katData.signature))
 			return
 		}
 	}

@@ -11,20 +11,19 @@ import (
 const directory = "benchmark/results"
 const fileName = "results.json"
 
-func ParameterSet(securityLevel, n int) {
+func ParameterSet(n int) {
 	// Initialize MAYO with the security level
 	message := make([]byte, 32)
-	mayo, err := crypto.InitMayo(securityLevel)
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
+	mayo := crypto.InitMayo()
 
 	// Benchmark CompactKeyGen
 	keyGenResults := make([]int64, n)
 	for i := 0; i < n; i++ {
 		before := time.Now()
-		mayo.CompactKeyGen()
+		_, _, err := mayo.CompactKeyGen()
+		if err != nil {
+			return
+		}
 		duration := time.Since(before)
 		keyGenResults[i] = duration.Nanoseconds()
 	}
@@ -83,7 +82,7 @@ func ParameterSet(securityLevel, n int) {
 		panic(err)
 	}
 	err = os.WriteFile(fmt.Sprintf("%s/paramset-%d-%s-%s",
-		directory, securityLevel, time.Now().Format("2006-01-02-15-04-05"), fileName), resultsJson, 0644)
+		directory, time.Now().Format("2006-01-02-15-04-05"), fileName), resultsJson, 0644)
 	if err != nil {
 		panic(err)
 	}

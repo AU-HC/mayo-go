@@ -12,23 +12,18 @@ import (
 func main() {
 	// Get application flags
 	arguments := flags.GetApplicationArguments()
-	securityLevel := arguments.ParameterSet
 	amountOfBenchmarkSamples := arguments.AmountBenchmarkingSamples
 
 	// If amount of samples
 	if amountOfBenchmarkSamples > 0 {
-		benchmark.ParameterSet(securityLevel, amountOfBenchmarkSamples) // TODO: Return filename?
+		benchmark.ParameterSet(amountOfBenchmarkSamples) // TODO: Return filename?
 		fmt.Println("Benchmarking done, see benchmark/results for more information")
 		return
 	}
 
 	// Initialize MAYO
 	message := []byte("Hello, world!")
-	mayo, err := crypto.InitMayo(securityLevel)
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
+	mayo := crypto.InitMayo()
 
 	// Generate the public key and secret key
 	before := time.Now()

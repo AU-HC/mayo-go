@@ -1,29 +1,18 @@
 package mayo
 
 import (
-	"errors"
-	"fmt"
 	"mayo-go/field"
 )
 
 type Mayo struct {
-	// MAYO is parameterized by the following (missing F, which is the polynomial)
-	q, m, n, o, k, saltBytes, digestBytes, pkSeedBytes int
-	tailF                                              []byte
-
-	// MAYO then has the following derived parameters
-	skSeedBytes, oBytes, vBytes, p1Bytes, p2Bytes, p3Bytes, lBytes, cskBytes, eskBytes, cpkBytes, epkBytes, sigBytes, rBytes int
-
-	// Lastly we have variables that are not defined in the spec, but help make the code more readable
-	v, shifts int
-
+	//tailF []byte
 	field *field.Field
 }
 
 // InitMayo initializes mayo with the correct parameters according to the specification. Note that
 // mayo has 4 levels: 1, 2, 3, and 5.
-func InitMayo(securityLevel int) (*Mayo, error) {
-	if securityLevel == 1 {
+func InitMayo() *Mayo {
+	/*if securityLevel == 1 {
 		return initMayo(86, 78, 8, 10, 16, 24, 32, 16, []byte{8, 1, 1, 0}), nil
 	} else if securityLevel == 2 {
 		return initMayo(81, 64, 17, 4, 16, 24, 32, 16, []byte{8, 0, 2, 8}), nil
@@ -33,17 +22,12 @@ func InitMayo(securityLevel int) (*Mayo, error) {
 		return initMayo(154, 142, 12, 12, 16, 40, 64, 16, []byte{4, 0, 8, 1}), nil
 	}
 
-	return nil, errors.New(
-		fmt.Sprintf("Wrong security level supplied: '%d'. Must be either '1', '2', '3', or '5'.", securityLevel))
+	*/
+
+	return initMayo()
 }
 
-func initMayo(n, m, o, k, q, saltBytes, digestBytes, pkSeedBytes int, tailF []byte) *Mayo {
-	if q != 16 {
-		panic("q is fixed to be 16, in this version of MAYO")
-	} else if k >= n-o {
-		panic("K should be smaller than N-o")
-	}
-
+func initMayo() *Mayo {
 	//skSeedBytes := saltBytes
 	//oBytes := int(math.Ceil(float64((n-o)*o) / 2.0))
 	//vBytes := int(math.Ceil(float64(n-o) / 2.0))
@@ -55,11 +39,9 @@ func initMayo(n, m, o, k, q, saltBytes, digestBytes, pkSeedBytes int, tailF []by
 	//cpkBytes := pkSeedBytes + p3Bytes
 	//epkBytes := p1Bytes + p2Bytes + p3Bytes
 	//sigBytes := int(math.Ceil(float64(n*k)/2.0)) + saltBytes
-
-	//v := n - o
+	// v := n - o
 
 	return &Mayo{
-		tailF: tailF,
 		field: field.InitField(),
 	}
 }

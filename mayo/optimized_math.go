@@ -278,11 +278,11 @@ func (mayo *Mayo) computeRhs(VPV []uint64, t, y []byte) {
 			}
 
 			// reduce
-			for jj := 0; jj < len(mayo.tailF); jj++ {
+			for jj := 0; jj < tailFLength; jj++ {
 				if jj%2 == 0 {
-					tempBytes[jj/2] ^= mayo.field.Gf16Mul(top, mayo.tailF[jj])
+					tempBytes[jj/2] ^= mayo.field.Gf16Mul(top, tailF[jj])
 				} else {
-					tempBytes[jj/2] ^= mayo.field.Gf16Mul(top, mayo.tailF[jj]) << 4
+					tempBytes[jj/2] ^= mayo.field.Gf16Mul(top, tailF[jj]) << 4
 				}
 			}
 
@@ -427,12 +427,12 @@ func (mayo *Mayo) computeA(mTemp []uint64, AOut []byte) {
 		mayo.Transpose16x16Nibbles(A[:], c)
 	}
 
-	tab := make([]byte, len(mayo.tailF)*4) // TODO: is this mVecLimbs
-	for i := 0; i < len(mayo.tailF); i++ {
-		tab[4*i] = mayo.field.Gf16Mul(mayo.tailF[i], 1)
-		tab[4*i+1] = mayo.field.Gf16Mul(mayo.tailF[i], 2)
-		tab[4*i+2] = mayo.field.Gf16Mul(mayo.tailF[i], 4)
-		tab[4*i+3] = mayo.field.Gf16Mul(mayo.tailF[i], 8)
+	tab := make([]byte, tailFLength*4) // TODO: is this mVecLimbs
+	for i := 0; i < tailFLength; i++ {
+		tab[4*i] = mayo.field.Gf16Mul(tailF[i], 1)
+		tab[4*i+1] = mayo.field.Gf16Mul(tailF[i], 2)
+		tab[4*i+2] = mayo.field.Gf16Mul(tailF[i], 4)
+		tab[4*i+3] = mayo.field.Gf16Mul(tailF[i], 8)
 	}
 
 	lowBitInNibble := uint64(0x1111111111111111)
@@ -443,7 +443,7 @@ func (mayo *Mayo) computeA(mTemp []uint64, AOut []byte) {
 			t1 := (A[pos] >> 1) & lowBitInNibble
 			t2 := (A[pos] >> 2) & lowBitInNibble
 			t3 := (A[pos] >> 3) & lowBitInNibble
-			for t := 0; t < len(mayo.tailF); t++ {
+			for t := 0; t < tailFLength; t++ {
 				A[((r+t-M)/16)*AWidth+c+((r+t-M)%16)] ^= t0*uint64(tab[4*t+0]) ^ t1*uint64(tab[4*t+1]) ^ t2*uint64(tab[4*t+2]) ^ t3*uint64(tab[4*t+3])
 			}
 		}

@@ -26,3 +26,6 @@ const saltBytes = 24
 const digestBytes = 32
 const pkSeedBytes = 16
 const skSeedBytes = 24
+const tailFLength = 4
+
+var tailF = []byte{8, 0, 2, 8}
