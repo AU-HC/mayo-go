@@ -31,11 +31,7 @@ func main() {
 
 	// Generate the public key and secret key
 	before := time.Now()
-	cpk, csk, err := mayo.CompactKeyGen()
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
+	cpk, csk := mayo.CompactKeyGen()
 	fmt.Println(fmt.Sprintf("Keygen took: %dms", time.Since(before).Milliseconds()))
 
 	// Sign the message

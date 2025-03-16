@@ -8,7 +8,7 @@ import (
 
 // CompactKeyGen (Algorithm 4) outputs compact representation of a secret key csk and public key cpk. Will instead
 // return an error, if it fails to generate random bytes.
-func (mayo *Mayo) CompactKeyGen() (CompactPublicKey, CompactSecretKey, error) {
+func (mayo *Mayo) CompactKeyGen() (CompactPublicKey, CompactSecretKey) {
 	// Pick seekSk at random
 	var seedSk [skSeedBytes]byte
 	rand.SampleRandomBytes(seedSk[:])
@@ -29,7 +29,7 @@ func (mayo *Mayo) CompactKeyGen() (CompactPublicKey, CompactSecretKey, error) {
 	P3 := mayo.computeP3(P1, O, P2)
 
 	// Output keys
-	return CompactPublicKey{seedPk: seedPk, p3: P3}, CompactSecretKey{seedSk: seedSk}, nil
+	return CompactPublicKey{seedPk: seedPk, p3: P3}, CompactSecretKey{seedSk: seedSk}
 }
 
 // ExpandSK (Algorithm 5) takes the compacted secret key csk and outputs an expanded secret key esk

@@ -101,10 +101,7 @@ func generateCompactKeys(mayo *Mayo, n int) ([]CompactPublicKey, []CompactSecret
 	cpks := make([]CompactPublicKey, n)
 	csks := make([]CompactSecretKey, n)
 	for i := 0; i < n; i++ {
-		cpk, csk, err := mayo.CompactKeyGen()
-		if err != nil {
-			panic(err)
-		}
+		cpk, csk := mayo.CompactKeyGen()
 		cpks[i] = cpk
 		csks[i] = csk
 	}
