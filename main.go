@@ -15,8 +15,13 @@ func main() {
 
 	// If amount of samples
 	if amountOfBenchmarkSamples > 0 {
-		crypto.Benchmark(amountOfBenchmarkSamples) // TODO: Return filename?
-		fmt.Println("Benchmarking done, see benchmark/results for more information")
+		path, err := crypto.Benchmark(amountOfBenchmarkSamples)
+
+		if err != nil {
+			fmt.Println("Got error while benchmarking: ", err)
+		}
+
+		fmt.Println(fmt.Sprintf("Benchmarking done, see /%s for more information", path))
 		return
 	}
 

@@ -110,7 +110,7 @@ func (mayo *Mayo) upper(matrix []uint64, matrixUpper []uint64, rows, cols int) {
 	}
 }
 
-func (mayo *Mayo) computeP3(P1 []uint64, O [][]byte, P2 []uint64) []byte {
+func (mayo *Mayo) computeP3(P1 []uint64, O [][]byte, P2 []uint64) [P3Bytes / 8]uint64 {
 	// Compute P3 = (−O^T P1 O ) − (−O^T  P2) as P3 = O^t (P1 O + P2)
 	// First compute (P1 O + P2) and store in P2
 	mayo.matMulAdd(P1, O, P2, v, v, o, 1)
@@ -121,12 +121,10 @@ func (mayo *Mayo) computeP3(P1 []uint64, O [][]byte, P2 []uint64) []byte {
 	var P3Upper [P3Bytes / 8]uint64
 	mayo.upper(P3[:], P3Upper[:], v, o)
 	// Serialize P3 to bytes TODO: Consider making a struct for PK and simply storing the uint32's
-	var P3ByteArray [P3Bytes]byte
-	uint64SliceToBytes(P3ByteArray[:], P3Upper[:])
-	return P3ByteArray[:]
+	return P3Upper
 }
 
-func (mayo *Mayo) computeL(P1 []uint64, O [][]byte, P2acc []uint64) []byte {
+func (mayo *Mayo) computeL(P1 []uint64, O [][]byte, P2acc []uint64) {
 	bsMatEntriesUsed := 0
 
 	for r := 0; r < v; r++ {
@@ -143,10 +141,6 @@ func (mayo *Mayo) computeL(P1 []uint64, O [][]byte, P2acc []uint64) []byte {
 			bsMatEntriesUsed += 1
 		}
 	}
-	// Serialize L to bytes TODO: Consider making a struct for PK and simply storing the uint32's
-	var lBytesArray [lBytes]byte
-	uint64SliceToBytes(lBytesArray[:], P2acc)
-	return lBytesArray[:]
 }
 
 func (mayo *Mayo) vecMulAddXInv(in []uint64, inStart int, acc []uint64, accStart int) {

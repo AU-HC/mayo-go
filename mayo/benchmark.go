@@ -47,8 +47,8 @@ func Benchmark(n int) (string, error) {
 		for j := 0; j < amountOfExpandPkRuns; j++ {
 			mayo.ExpandPK(cpks[i])
 		}
-		duration := time.Since(before) / amountOfExpandPkRuns
-		expandPKResults[i] = duration.Nanoseconds()
+		duration := time.Since(before)
+		expandPKResults[i] = duration.Nanoseconds() / amountOfExpandPkRuns
 	}
 
 	// Benchmark Sign (ExpandSK + Sign)
@@ -69,8 +69,8 @@ func Benchmark(n int) (string, error) {
 		for j := 0; j < amountOfVerifyRuns; j++ {
 			mayo.APISignOpen(signatures[i], cpks[i])
 		}
-		duration := time.Since(before) / amountOfVerifyRuns
-		verifyResults[i] = duration.Nanoseconds()
+		duration := time.Since(before)
+		verifyResults[i] = duration.Nanoseconds() / amountOfVerifyRuns
 	}
 
 	// Create struct to contain data-points
@@ -85,21 +85,21 @@ func Benchmark(n int) (string, error) {
 	// Write the results to JSON in results directory
 	resultsJson, err := json.MarshalIndent(results, "", " ")
 	if err != nil {
-		panic(err)
+		return "", err
 	}
 	pathToResults := fmt.Sprintf("%s/%s-%s", directory, time.Now().Format("2006-01-02-15-04-05"), fileName)
 	fmt.Println(pathToResults)
 	err = os.WriteFile(pathToResults, resultsJson, 0644)
 	if err != nil {
-		panic(err)
+		return "", err
 	}
 
 	return pathToResults, nil
 }
 
-func generateCompactKeys(mayo *Mayo, n int) ([][cpkBytes]byte, [][cskBytes]byte) {
-	cpks := make([][cpkBytes]byte, n)
-	csks := make([][cskBytes]byte, n)
+func generateCompactKeys(mayo *Mayo, n int) ([]CompactPublicKey, []CompactSecretKey) {
+	cpks := make([]CompactPublicKey, n)
+	csks := make([]CompactSecretKey, n)
 	for i := 0; i < n; i++ {
 		cpk, csk, err := mayo.CompactKeyGen()
 		if err != nil {

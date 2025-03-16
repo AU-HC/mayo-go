@@ -7,14 +7,9 @@ import (
 )
 
 func BenchmarkMayo_APISign(b *testing.B) {
-	//runtime.SetCPUProfileRate(300)
 	// Initialize MAYO
 	message := []byte("This is a message.")
-	mayo, err := InitMayo(2)
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
+	mayo := InitMayo()
 
 	// Generate the public key and secret key
 	cpk, csk, err := mayo.CompactKeyGen()

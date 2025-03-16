@@ -31,19 +31,19 @@ func CheckMayoKat(fileName string, t *testing.T) {
 	for _, katData := range katDataList {
 		rand.InitRandomness(katData.seed, make([]byte, 48), 256)
 
-		epk, esk, _ := mayo.CompactKeyGen()
+		cpk, csk, _ := mayo.CompactKeyGen()
 
-		if !bytes.Equal(epk[:], katData.pk) {
-			t.Error(fmt.Sprintf("Generated PK and KAT PK are not equal for iteration: %d:\n Got      %v\n Expected %v", katData.count, epk, katData.pk))
+		if !bytes.Equal(cpk.Bytes()[:], katData.pk) {
+			t.Error(fmt.Sprintf("Generated PK and KAT PK are not equal for iteration: %d:\n Got      %v\n Expected %v", katData.count, cpk, katData.pk))
 			return
 		}
 
-		if !bytes.Equal(esk[:], katData.sk) {
-			t.Error(fmt.Sprintf("Generated SK and KAT SK are not equal for iteration: %d:\n Got      %v\n Expected %v", katData.count, esk, katData.sk))
+		if !bytes.Equal(csk.Bytes()[:], katData.sk) {
+			t.Error(fmt.Sprintf("Generated SK and KAT SK are not equal for iteration: %d:\n Got      %v\n Expected %v", katData.count, csk, katData.sk))
 			return
 		}
 
-		sig := mayo.APISign(katData.message, esk)
+		sig := mayo.APISign(katData.message, csk)
 		if !bytes.Equal(sig, katData.signature) {
 			t.Error(fmt.Sprintf("Generated signature and KAT signature are not equal for iteration: %d:\n Got      %v\n Expected %v", katData.count, sig, katData.signature))
 			return
