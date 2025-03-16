@@ -59,12 +59,6 @@ func (mayo *Mayo) ExpandSK(csk CompactSecretKey) ExpandedSecretKey {
 		l:      P2,
 		o:      oByteString,
 	}
-	//var esk [eskBytes]byte
-	//copy(esk[:skSeedBytes], csk.seedSk[:])
-	//copy(esk[skSeedBytes:], oByteString)
-	//copy(esk[skSeedBytes+OBytes:], p1Bytes[:])
-	//copy(esk[skSeedBytes+OBytes+P1Bytes:], lByteArray)
-	//return esk
 }
 
 // ExpandPK (Algorithm 6) takes the compacted public key csk and outputs an expanded public key epk
@@ -84,12 +78,6 @@ func (mayo *Mayo) ExpandPK(cpk CompactPublicKey) ExpandedPublicKey {
 		p2: P2,
 		p3: cpk.p3,
 	}
-
-	// Expand seedPk and return epk
-	//var epk [epkBytes]byte
-	//copy(epk[:P1Bytes+P2Bytes], p1p2Bytes[:])
-	//copy(epk[P1Bytes+P2Bytes:], cpk[pkSeedBytes:pkSeedBytes+P3Bytes])
-	//return epk
 }
 
 // Sign (Algorithm 7) takes an expanded secret key esk and a message M and outputs a signature on the message M
