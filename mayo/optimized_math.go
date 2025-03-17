@@ -410,7 +410,7 @@ func (mayo *Mayo) computeA(mTemp []uint64, AOut []byte) {
 		for j := mayo.k - 1; j >= i; j-- {
 			for c := 0; c < mayo.o; c++ {
 				for k := 0; k < mayo.mVecLimbs; k++ {
-					A[mayo.o*i+c+(k+wordsToShift)*AWidth] ^= mTemp[j*4*mayo.o+k+c*mayo.mVecLimbs] << bitsToShift
+					A[mayo.o*i+c+(k+wordsToShift)*AWidth] ^= mTemp[j*mayo.mVecLimbs*mayo.o+k+c*mayo.mVecLimbs] << bitsToShift
 					if bitsToShift > 0 {
 						A[mayo.o*i+c+(k+wordsToShift+1)*AWidth] ^= mTemp[j*mayo.mVecLimbs*mayo.o+k+c*mayo.mVecLimbs] >> (64 - bitsToShift)
 					}
@@ -462,7 +462,7 @@ func (mayo *Mayo) computeA(mTemp []uint64, AOut []byte) {
 		}
 	}
 
-	aBytes := make([]byte, len(A)*8)
+	aBytes := make([]byte, ((((mayo.o*mayo.k+15)/16)*16)*((mayo.m+7)/8))*8)
 	uint64SliceToBytes(aBytes[:], A[:])
 
 	OKpadded := (mayo.k*mayo.o + 15) / 16 * 16
