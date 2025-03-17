@@ -28,4 +28,8 @@ const pkSeedBytes = 16
 const skSeedBytes = 24
 const tailFLength = 4
 
-var tailF = []byte{8, 0, 2, 8}
+const P1Limbs = v * (v + 1) / 2 * mVecLimbs
+const P2Limbs = v * o * mVecLimbs
+const P3Limbs = o * (o + 1) / 2 * mVecLimbs
+
+var tailF = [2]byte{8, 0, 2, 8}

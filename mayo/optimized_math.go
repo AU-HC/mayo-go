@@ -110,17 +110,16 @@ func (mayo *Mayo) upper(matrix []uint64, matrixUpper []uint64, rows, cols int) {
 	}
 }
 
-func (mayo *Mayo) computeP3(P1 []uint64, O [][]byte, P2 []uint64) [P3Bytes / 8]uint64 {
+func (mayo *Mayo) computeP3(P1 []uint64, O [][]byte, P2 []uint64) [P3Limbs]uint64 {
 	// Compute P3 = (−O^T P1 O ) − (−O^T  P2) as P3 = O^t (P1 O + P2)
 	// First compute (P1 O + P2) and store in P2
 	mayo.matMulAdd(P1, O, P2, v, v, o, 1)
 	// Then compute P3 = O^t (P1 O + P2) and store in p3
-	var P3 [o * o * M / 16]uint64
+	var P3 [o * o * mVecLimbs]uint64
 	mayo.mulAddMatTransMat(O, P2, P3[:], v, o, o)
 	// Compute upper of P3
-	var P3Upper [P3Bytes / 8]uint64
+	var P3Upper [P3Limbs]uint64
 	mayo.upper(P3[:], P3Upper[:], v, o)
-	// Serialize P3 to bytes TODO: Consider making a struct for PK and simply storing the uint32's
 	return P3Upper
 }
 
@@ -246,7 +245,7 @@ func (mayo *Mayo) calculateSPS(PS []uint64, s []byte, SPS []uint64) {
 }
 
 func (mayo *Mayo) calculatePsSps(P1 []uint64, P2 []uint64, P3 []uint64, s []byte, SPS []uint64) {
-	var PS [N * K * 4]uint64
+	var PS [N * K * mVecLimbs]uint64
 	mayo.calculatePS(P1, P2, P3, s, PS[:])
 	mayo.calculateSPS(PS[:], s, SPS)
 }
@@ -254,10 +253,14 @@ func (mayo *Mayo) calculatePsSps(P1 []uint64, P2 []uint64, P3 []uint64, s []byte
 func (mayo *Mayo) computeRhs(VPV []uint64, t, y []byte) {
 	topPos := ((M - 1) % 16) * 4
 
-	// TODO: zero out fails of m_vectors if necessary (not needed for mayo2 as 64 % 16 == 0)
-	// here
-	// here
-	// here
+	if M%16 != 0 {
+		mask := uint64(1)
+		mask <<= (M % 16) * 4
+		mask -= 1
+		for i := 0; i < K*K; i++ {
+			VPV[i*mVecLimbs+mVecLimbs-1] &= mask
+		}
+	}
 
 	temp := make([]uint64, mVecLimbs)
 	tempBytes := unsafe.Slice((*byte)(unsafe.Pointer(&temp[0])), len(temp)*8)
@@ -272,7 +275,7 @@ func (mayo *Mayo) computeRhs(VPV []uint64, t, y []byte) {
 			}
 
 			// reduce
-			for jj := 0; jj < tailFLength; jj++ {
+			for jj := 0; jj < len(tailF); jj++ {
 				if jj%2 == 0 {
 					tempBytes[jj/2] ^= mayo.field.Gf16Mul(top, tailF[jj])
 				} else {
@@ -382,10 +385,14 @@ func (mayo *Mayo) computeA(mTemp []uint64, AOut []byte) {
 	AWidth := ((o*K + 15) / 16) * 16
 	var A [(((o*K + 15) / 16) * 16) * ((M + 7) / 8)]uint64
 
-	// TODO: zero out fails of m_vectors if necessary (not needed for mayo2 as 64 % 16 == 0)
-	// here
-	// here
-	// here
+	if M%16 != 0 {
+		mask := uint64(1)
+		mask <<= (M % 16) * 4
+		mask -= 1
+		for i := 0; i < o*K; i++ {
+			mTemp[i*mVecLimbs+mVecLimbs-1] &= mask
+		}
+	}
 
 	for i := 0; i < K; i++ {
 		for j := K - 1; j >= i; j-- {
@@ -409,7 +416,7 @@ func (mayo *Mayo) computeA(mTemp []uint64, AOut []byte) {
 				}
 			}
 
-			bitsToShift += 4 // TODO is this mVectorLimbs
+			bitsToShift += 4
 			if bitsToShift == 64 {
 				bitsToShift = 0
 				wordsToShift++
@@ -421,8 +428,8 @@ func (mayo *Mayo) computeA(mTemp []uint64, AOut []byte) {
 		mayo.Transpose16x16Nibbles(A[:], c)
 	}
 
-	tab := make([]byte, tailFLength*4) // TODO: is this mVecLimbs
-	for i := 0; i < tailFLength; i++ {
+	tab := make([]byte, len(tailF)*4)
+	for i := 0; i < len(tailF); i++ {
 		tab[4*i] = mayo.field.Gf16Mul(tailF[i], 1)
 		tab[4*i+1] = mayo.field.Gf16Mul(tailF[i], 2)
 		tab[4*i+2] = mayo.field.Gf16Mul(tailF[i], 4)
@@ -437,7 +444,7 @@ func (mayo *Mayo) computeA(mTemp []uint64, AOut []byte) {
 			t1 := (A[pos] >> 1) & lowBitInNibble
 			t2 := (A[pos] >> 2) & lowBitInNibble
 			t3 := (A[pos] >> 3) & lowBitInNibble
-			for t := 0; t < tailFLength; t++ {
+			for t := 0; t < len(tailF); t++ {
 				A[((r+t-M)/16)*AWidth+c+((r+t-M)%16)] ^= t0*uint64(tab[4*t+0]) ^ t1*uint64(tab[4*t+1]) ^ t2*uint64(tab[4*t+2]) ^ t3*uint64(tab[4*t+3])
 			}
 		}

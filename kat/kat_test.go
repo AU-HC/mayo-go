@@ -9,7 +9,7 @@ import (
 )
 
 func TestKat1(t *testing.T) {
-	//CheckMayoKat("kat_files/PQCsignKAT_24_MAYO_1.rsp", 1, t)
+	CheckMayoKat("kat_files/PQCsignKAT_24_MAYO_1.rsp", t)
 }
 
 func TestKat2(t *testing.T) {
@@ -17,7 +17,7 @@ func TestKat2(t *testing.T) {
 }
 
 func TestKat3(t *testing.T) {
-	//CheckMayoKat("kat_files/PQCsignKAT_32_MAYO_3.rsp", 3, t)
+	CheckMayoKat("kat_files/PQCsignKAT_32_MAYO_3.rsp", t)
 }
 
 func TestKat5(t *testing.T) {
@@ -31,15 +31,17 @@ func CheckMayoKat(fileName string, t *testing.T) {
 	for _, katData := range katDataList {
 		rand.InitRandomness(katData.seed, make([]byte, 48), 256)
 
-		cpk, csk, _ := mayo.CompactKeyGen()
+		cpk, csk := mayo.CompactKeyGen()
+		cpkBytes := cpk.Bytes()
+		cskBytes := csk.Bytes()
 
-		if !bytes.Equal(cpk.Bytes()[:], katData.pk) {
-			t.Error(fmt.Sprintf("Generated PK and KAT PK are not equal for iteration: %d:\n Got      %v\n Expected %v", katData.count, cpk, katData.pk))
+		if !bytes.Equal(cpkBytes[:], katData.pk) {
+			t.Error(fmt.Sprintf("Generated PK and KAT PK are not equal for iteration: %d:\n Got      %v\n Expected %v", katData.count, cpkBytes, katData.pk))
 			return
 		}
 
-		if !bytes.Equal(csk.Bytes()[:], katData.sk) {
-			t.Error(fmt.Sprintf("Generated SK and KAT SK are not equal for iteration: %d:\n Got      %v\n Expected %v", katData.count, csk, katData.sk))
+		if !bytes.Equal(cskBytes[:], katData.sk) {
+			t.Error(fmt.Sprintf("Generated SK and KAT SK are not equal for iteration: %d:\n Got      %v\n Expected %v", katData.count, cskBytes, katData.sk))
 			return
 		}
 

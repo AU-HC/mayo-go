@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"math"
 	"mayo-go/rand"
+	"unsafe"
 )
 
 // CompactKeyGen (Algorithm 4) outputs compact representation of a secret key csk and public key cpk. Will instead
@@ -21,15 +22,41 @@ func (mayo *Mayo) CompactKeyGen() (CompactPublicKey, CompactSecretKey) {
 	O := decodeMatrix(v, o, s[pkSeedBytes:pkSeedBytes+OBytes])
 
 	// Derive P_i^1 and P_i^2 from seekPk
-	P := rand.AES128CTR64(seedPk[:], P1Bytes+P2Bytes)
-	P1 := P[:P1Bytes/8]                      // v x v upper triangular matrix
-	P2 := P[P1Bytes/8 : (P1Bytes+P2Bytes)/8] // v x o matrix
+	PBytes := make([]byte, P1Bytes+P2Bytes)
+	rand.AES128CTR(seedPk[:], PBytes[:])
+	var P [P1Limbs + P2Limbs]uint64
+	unpackMVecs(PBytes, P[:], (P1Limbs+P2Limbs)/mVecLimbs)
+
+	P1 := P[:P1Limbs]                  // v x v upper triangular matrix
+	P2 := P[P1Limbs : P1Limbs+P2Limbs] // v x o matrix
 
 	// Compute P3
 	P3 := mayo.computeP3(P1, O, P2)
 
 	// Output keys
 	return CompactPublicKey{seedPk: seedPk, p3: P3}, CompactSecretKey{seedSk: seedSk}
+}
+
+func unpackMVecs(in []byte, out []uint64, vecs int) {
+	tmp := make([]byte, M/2) // Temporary buffer for a single vector
+
+	for i := vecs - 1; i >= 0; i-- {
+		// Copy packed vector from `in` to `tmp`
+		copy(tmp, in[i*M/2:i*M/2+M/2])
+
+		// Copy `tmp` into the appropriate location in `out`
+		outBytes := (*(*[1 << 30]byte)(unsafe.Pointer(&out[0])))[:]
+		copy(outBytes[i*mVecLimbs*8:], tmp)
+	}
+}
+
+func packMVecs(in []uint64, out []byte, vecs int) {
+	// Treat `in` as a byte slice for copying
+	inBytes := (*(*[1 << 30]byte)(unsafe.Pointer(&in[0])))[:]
+
+	for i := 0; i < vecs; i++ {
+		copy(out[i*M/2:], inBytes[i*mVecLimbs*8:i*mVecLimbs*8+M/2])
+	}
 }
 
 // ExpandSK (Algorithm 5) takes the compacted secret key csk and outputs an expanded secret key esk
@@ -43,12 +70,15 @@ func (mayo *Mayo) ExpandSK(csk CompactSecretKey) ExpandedSecretKey {
 	O := decodeMatrix(v, o, oByteString[:])
 
 	// Derive P1 and P2 from seedPk
-	P := rand.AES128CTR64(seedPk, P1Bytes+P2Bytes)
+	PBytes := make([]byte, P1Bytes+P2Bytes)
+	rand.AES128CTR(seedPk[:], PBytes[:])
+	var P [P1Limbs + P2Limbs]uint64
+	unpackMVecs(PBytes, P[:], (P1Limbs+P2Limbs)/mVecLimbs)
 
-	var P1 [P1Bytes / 8]uint64 // v x v upper triangular matrix
-	var P2 [P2Bytes / 8]uint64 // v x o matrix
-	copy(P1[:], P[:P1Bytes/8])
-	copy(P2[:], P[P1Bytes/8:(P1Bytes+P2Bytes)/8])
+	var P1 [P1Limbs]uint64
+	var P2 [P2Limbs]uint64
+	copy(P1[:], P[:P1Limbs])                // v x v upper triangular matrix
+	copy(P2[:], P[P1Limbs:P1Limbs+P2Limbs]) // v x o matrix
 
 	// Compute L and store in P2
 	mayo.computeL(P1[:], O, P2[:])
@@ -65,17 +95,19 @@ func (mayo *Mayo) ExpandSK(csk CompactSecretKey) ExpandedSecretKey {
 func (mayo *Mayo) ExpandPK(cpk CompactPublicKey) ExpandedPublicKey {
 	// Parse cpk
 	seedPk := cpk.seedPk
-	var p1p2Bytes [P1Bytes + P2Bytes]byte
 
-	rand.AES128CTR(seedPk[:], p1p2Bytes[:])
-	var P1 [P1Bytes / 8]uint64
-	var P2 [P2Bytes / 8]uint64
-	bytesToUint64Slice(P1[:], p1p2Bytes[:P1Bytes])
-	bytesToUint64Slice(P2[:], p1p2Bytes[P1Bytes:P1Bytes+P2Bytes])
+	// Derive P_i^1 and P_i^2 from seekPk
+	PBytes := make([]byte, P1Bytes+P2Bytes)
+	rand.AES128CTR(seedPk[:], PBytes[:])
+	var P [P1Limbs + P2Limbs]uint64
+	unpackMVecs(PBytes, P[:], (P1Limbs+P2Limbs)/mVecLimbs)
+
+	P1 := P[:P1Limbs]                  // v x v upper triangular matrix
+	P2 := P[P1Limbs : P1Limbs+P2Limbs] // v x o matrix
 
 	return ExpandedPublicKey{
-		p1: P1,
-		p2: P2,
+		p1: [P1Limbs]uint64(P1),
+		p2: [P2Limbs]uint64(P2),
 		p3: cpk.p3,
 	}
 }
@@ -117,7 +149,7 @@ func (mayo *Mayo) Sign(esk ExpandedSecretKey, message []byte) []byte {
 		mayo.computeRhs(A[:], t[:], y[:])
 
 		var aBytes [((M + 7) / 8 * 8) * (K*o + 1)]byte
-		uint64SliceToBytes(aBytes[:], A[:])
+		uint64SliceToBytes(aBytes[:], A[:]) // todo: pack or not?
 		mayo.computeA(mTemp[:], aBytes[:])
 
 		for i := 0; i < M; i++ {

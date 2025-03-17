@@ -10,8 +10,8 @@ func (csk *CompactSecretKey) Bytes() []byte {
 
 type ExpandedSecretKey struct {
 	seedSk [skSeedBytes]byte
-	p1     [P1Bytes / 8]uint64
-	l      [lBytes / 8]uint64
+	p1     [P1Limbs]uint64
+	l      [P2Limbs]uint64
 	o      [OBytes]byte
 }
 
@@ -26,20 +26,22 @@ func (esk *ExpandedSecretKey) Bytes() []byte {
 
 type CompactPublicKey struct {
 	seedPk [pkSeedBytes]byte
-	p3     [P3Bytes / 8]uint64
+	p3     [P3Limbs]uint64
 }
 
 func (cpk *CompactPublicKey) Bytes() []byte {
 	var result [cpkBytes]byte
-	copy(result[:], cpk.seedPk[:])
-	uint64SliceToBytes(result[pkSeedBytes:], cpk.p3[:])
+	copy(result[:pkSeedBytes], cpk.seedPk[:])
+	packMVecs(cpk.p3[:], result[pkSeedBytes:cpkBytes], P3Limbs/mVecLimbs)
+
+	//uint64SliceToBytes(result[pkSeedBytes:cpkBytes], cpk.p3[:])
 	return result[:]
 }
 
 type ExpandedPublicKey struct {
-	p1 [P1Bytes / 8]uint64
-	p2 [P2Bytes / 8]uint64
-	p3 [P3Bytes / 8]uint64
+	p1 [P1Limbs]uint64
+	p2 [P2Limbs]uint64
+	p3 [P3Limbs]uint64
 }
 
 func (epk *ExpandedPublicKey) Bytes() []byte {

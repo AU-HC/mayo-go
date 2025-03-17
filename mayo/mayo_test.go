@@ -2,7 +2,6 @@
 
 import (
 	"bytes"
-	"fmt"
 	"testing"
 )
 
@@ -12,11 +11,7 @@ func BenchmarkMayo_APISign(b *testing.B) {
 	mayo := InitMayo()
 
 	// Generate the public key and secret key
-	cpk, csk, err := mayo.CompactKeyGen()
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
+	cpk, csk := mayo.CompactKeyGen()
 
 	// Sign and open the signature
 	sig := mayo.APISign(message, csk)

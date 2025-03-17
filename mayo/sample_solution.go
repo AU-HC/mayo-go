@@ -86,7 +86,7 @@ func (mayo *Mayo) echelonForm(A []byte, nRows int, nCols int) {
 		pivotRowLowerBound := max(0, pivotCol+nRows-nCols)
 		pivotRowUpperBound := min(nRows-1, pivotCol)
 
-		for i := 0; i < rowLen; i++ { // TODO: Check if needed
+		for i := 0; i < rowLen; i++ {
 			pivotRowData[i] = 0
 			pivotRowData2[i] = 0
 		}
