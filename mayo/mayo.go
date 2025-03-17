@@ -20,7 +20,7 @@ func (mayo *Mayo) CompactKeyGen() (CompactPublicKey, CompactSecretKey) {
 	copy(seedPk[:], s[:pkSeedBytes])
 	O := decodeMatrix(v, o, s[pkSeedBytes:pkSeedBytes+OBytes])
 
-	// Derive P_i^1 and P_i^2 from seekPk
+	// Derive P1 and P^2 from seekPk
 	P1, P2 := mayo.expandP1P2(seedPk)
 
 	// Compute P3

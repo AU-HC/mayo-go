@@ -13,7 +13,11 @@ const amountOfExpandPkRuns = 30
 const amountOfVerifyRuns = 10
 
 type Results struct {
-	KeyGen, ExpandSK, ExpandPK, Sign, Verify []int64
+	KeyGen   []int64 `json:"KeyGen"`
+	ExpandSK []int64 `json:"ExpandSK"`
+	ExpandPK []int64 `json:"ExpandPK"`
+	Sign     []int64 `json:"ExpandSK + Sign"`
+	Verify   []int64 `json:"ExpandPK + Verify"`
 }
 
 func Benchmark(n int) (string, error) {
