@@ -87,15 +87,15 @@ func bytesToUint64Slice(dst []uint64, src []byte) {
 
 // Taken from C reference implementation
 func unpackMVecs(in []byte, out []uint64, vecs int) {
-	tmp := make([]byte, M/2) // Temporary buffer for a single vector
+	var tmp [M / 2]byte // Temporary buffer for a single vector
 
 	for i := vecs - 1; i >= 0; i-- {
 		// Copy packed vector from `in` to `tmp`
-		copy(tmp, in[i*M/2:i*M/2+M/2])
+		copy(tmp[:], in[i*M/2:i*M/2+M/2])
 
 		// Copy `tmp` into the appropriate location in `out`
 		outBytes := (*(*[1 << 30]byte)(unsafe.Pointer(&out[0])))[:]
-		copy(outBytes[i*mVecLimbs*8:], tmp)
+		copy(outBytes[i*mVecLimbs*8:], tmp[:])
 	}
 }
 

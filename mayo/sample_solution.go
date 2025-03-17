@@ -70,14 +70,14 @@ func (mayo *Mayo) sampleSolution(A, y, r, x []byte) bool {
 }
 
 func (mayo *Mayo) echelonForm(A []byte, nRows int, nCols int) {
-	pivotRowData := make([]uint64, (K*o+1+15)/16)
-	pivotRowData2 := make([]uint64, (K*o+1+15)/16)
-	packedA := make([]uint64, (K*o+1+15)/16*M)
+	var pivotRowData [(K*o + 1 + 15) / 16]uint64
+	var pivotRowData2 [(K*o + 1 + 15) / 16]uint64
+	var packedA [(K*o + 1 + 15) / 16 * M]uint64
 
 	rowLen := (nCols + 15) / 16
 
 	for i := 0; i < nRows; i++ {
-		mayo.efPackMVec(A, i*nCols, packedA, i*rowLen, nCols)
+		mayo.efPackMVec(A, i*nCols, packedA[:], i*rowLen, nCols)
 	}
 
 	var inverse byte
@@ -107,7 +107,7 @@ func (mayo *Mayo) echelonForm(A []byte, nRows int, nCols int) {
 		}
 
 		inverse = mayo.field.Gf16Inv(pivot)
-		mayo.vecMulAddUint64(rowLen, pivotRowData, inverse, pivotRowData2, 0)
+		mayo.vecMulAddUint64(rowLen, pivotRowData[:], inverse, pivotRowData2[:], 0)
 
 		for row := pivotRowLowerBound; row <= pivotRowUpperBound; row++ {
 			doCopy := ^mayo.ctCompare(row, pivotRow) & ^pivotIsZero
@@ -124,7 +124,7 @@ func (mayo *Mayo) echelonForm(A []byte, nRows int, nCols int) {
 				belowPivot = 1
 			}
 			eltToElim := extractElement(packedA[row*rowLen:], pivotCol)
-			mayo.vecMulAddUint64(rowLen, pivotRowData2, belowPivot*eltToElim, packedA, row*rowLen)
+			mayo.vecMulAddUint64(rowLen, pivotRowData2[:], belowPivot*eltToElim, packedA[:], row*rowLen)
 		}
 
 		pivotRow += -int(^pivotIsZero)
@@ -133,7 +133,7 @@ func (mayo *Mayo) echelonForm(A []byte, nRows int, nCols int) {
 	var temp [o*K + 1 + 15]byte
 	// unbitslice the matrix A
 	for i := 0; i < nRows; i++ {
-		efUnpackMVec(rowLen, packedA, i*rowLen, temp[:])
+		efUnpackMVec(rowLen, packedA[:], i*rowLen, temp[:])
 		for j := 0; j < nCols; j++ {
 			A[i*nCols+j] = temp[j]
 		}

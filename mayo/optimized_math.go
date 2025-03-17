@@ -183,7 +183,7 @@ func (mayo *Mayo) vecMultiplyBins(bins []uint64, binsStartIndex int, out []uint6
 }
 
 func (mayo *Mayo) calculatePS(P1 []uint64, P2 []uint64, P3 []uint64, s []byte, PS []uint64) {
-	acc := make([]uint64, 16*((M+15)/16)*K*N)
+	var acc [16 * ((M + 15) / 16) * K * N]uint64
 
 	p1Used := 0
 	for row := 0; row < v; row++ {
@@ -191,7 +191,7 @@ func (mayo *Mayo) calculatePS(P1 []uint64, P2 []uint64, P3 []uint64, s []byte, P
 			for col := 0; col < K; col++ {
 				bsMatStartIndex := p1Used * mVecLimbs
 				accStartIndex := ((row*K+col)*16 + int(s[col*N+j])) * mVecLimbs
-				mayo.vecAdd(P1, bsMatStartIndex, acc, accStartIndex)
+				mayo.vecAdd(P1, bsMatStartIndex, acc[:], accStartIndex)
 			}
 			p1Used += 1
 		}
@@ -200,7 +200,7 @@ func (mayo *Mayo) calculatePS(P1 []uint64, P2 []uint64, P3 []uint64, s []byte, P
 			for col := 0; col < K; col++ {
 				bsMatStartIndex := (row*o + j) * mVecLimbs
 				accStartIndex := ((row*K+col)*16 + int(s[(col*N)+j+v])) * mVecLimbs
-				mayo.vecAdd(P2, bsMatStartIndex, acc, accStartIndex)
+				mayo.vecAdd(P2, bsMatStartIndex, acc[:], accStartIndex)
 			}
 		}
 	}
@@ -211,7 +211,7 @@ func (mayo *Mayo) calculatePS(P1 []uint64, P2 []uint64, P3 []uint64, s []byte, P
 			for col := 0; col < K; col++ {
 				bsMatStartIndex := p3Used * mVecLimbs
 				accStartIndex := ((row*K+col)*16 + int(s[col*N+j])) * mVecLimbs
-				mayo.vecAdd(P3, bsMatStartIndex, acc, accStartIndex)
+				mayo.vecAdd(P3, bsMatStartIndex, acc[:], accStartIndex)
 			}
 			p3Used += 1
 		}
@@ -220,7 +220,7 @@ func (mayo *Mayo) calculatePS(P1 []uint64, P2 []uint64, P3 []uint64, s []byte, P
 	for i := 0; i < N*K; i++ {
 		bsMatStartIndex := i * mVecLimbs
 		accStartIndex := i * 16 * mVecLimbs
-		mayo.vecMultiplyBins(acc, accStartIndex, PS, bsMatStartIndex)
+		mayo.vecMultiplyBins(acc[:], accStartIndex, PS, bsMatStartIndex)
 	}
 }
 
@@ -262,7 +262,7 @@ func (mayo *Mayo) computeRhs(VPV []uint64, t, y []byte) {
 		}
 	}
 
-	temp := make([]uint64, mVecLimbs)
+	var temp [mVecLimbs]uint64
 	tempBytes := unsafe.Slice((*byte)(unsafe.Pointer(&temp[0])), len(temp)*8)
 	for i := K - 1; i >= 0; i-- {
 		for j := i; j < K; j++ {
@@ -305,8 +305,8 @@ func (mayo *Mayo) computeRhs(VPV []uint64, t, y []byte) {
 func (mayo *Mayo) evalPublicMap(s []byte, P1 []uint64, P2 []uint64, P3 []uint64, eval []byte) {
 	var SPS [K * K * mVecLimbs]uint64
 	mayo.calculatePsSps(P1, P2, P3, s, SPS[:])
-	zero := make([]byte, M)
-	mayo.computeRhs(SPS[:], zero, eval)
+	var zero [M]byte
+	mayo.computeRhs(SPS[:], zero[:], eval)
 }
 
 func (mayo *Mayo) mulAddMatXMMat(v []byte, L []uint64, acc []uint64, matRows, matCols, bsMatCols int) {
@@ -428,7 +428,7 @@ func (mayo *Mayo) computeA(mTemp []uint64, AOut []byte) {
 		mayo.Transpose16x16Nibbles(A[:], c)
 	}
 
-	tab := make([]byte, len(tailF)*4)
+	var tab [tailFLength * 4]byte
 	for i := 0; i < len(tailF); i++ {
 		tab[4*i] = mayo.field.Gf16Mul(tailF[i], 1)
 		tab[4*i+1] = mayo.field.Gf16Mul(tailF[i], 2)

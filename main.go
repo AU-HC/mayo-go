@@ -26,7 +26,7 @@ func main() {
 	}
 
 	// Initialize MAYO
-	message := make([]byte, 32) //[]byte("Hello, world!")
+	message := []byte("Hello, world!")
 	mayo := crypto.InitMayo()
 
 	// Generate the public key and secret key

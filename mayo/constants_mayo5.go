@@ -24,6 +24,7 @@ const eskBytes = skSeedBytes + OBytes + P1Bytes + lBytes
 const epkBytes = P1Bytes + P2Bytes + P3Bytes
 const lBytes = M * (N - o) * o / 2
 const skSeedBytes = saltBytes
+const tailFLength = 4
 
 const aCols = K*o + 1
 const mVecLimbs = 9
