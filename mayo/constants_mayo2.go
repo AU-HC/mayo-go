@@ -32,4 +32,4 @@ const P1Limbs = v * (v + 1) / 2 * mVecLimbs
 const P2Limbs = v * o * mVecLimbs
 const P3Limbs = o * (o + 1) / 2 * mVecLimbs
 
-var tailF = [2]byte{8, 0, 2, 8}
+var tailF = [4]byte{8, 0, 2, 8}

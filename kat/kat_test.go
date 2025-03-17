@@ -21,7 +21,7 @@ func TestKat3(t *testing.T) {
 }
 
 func TestKat5(t *testing.T) {
-	//CheckMayoKat("kat_files/PQCsignKAT_40_MAYO_5.rsp", 5, t)
+	CheckMayoKat("kat_files/PQCsignKAT_40_MAYO_5.rsp", t)
 }
 
 func CheckMayoKat(fileName string, t *testing.T) {
