@@ -104,7 +104,7 @@ func (mayo *Mayo) Sign(esk ExpandedSecretKey, message []byte) []byte {
 		mayo.computeRhs(A[:], t[:], y[:])
 
 		var aBytes [((M + 7) / 8 * 8) * (K*o + 1)]byte
-		uint64SliceToBytes(aBytes[:], A[:]) // todo: pack or not?
+		uint64SliceToBytes(aBytes[:], A[:])
 		mayo.computeA(mTemp[:], aBytes[:])
 
 		for i := 0; i < M; i++ {
