@@ -16,7 +16,7 @@ type Mayo struct {
 	skSeedBytes, oBytes, vBytes, p1Bytes, p2Bytes, p3Bytes, lBytes, cskBytes, eskBytes, cpkBytes, epkBytes, sigBytes, rBytes int
 
 	// Lastly we have variables that are not defined in the spec, but help make the code more readable
-	v, shifts int
+	v, shifts, mVecLimbs, P1Limbs, P2Limbs, P3Limbs int
 
 	field *field.Field
 }
@@ -45,6 +45,7 @@ func initMayo(n, m, o, k, q, saltBytes, digestBytes, pkSeedBytes int, tailF []by
 		panic("k should be smaller than n-o")
 	}
 
+	v := n - o
 	skSeedBytes := saltBytes
 	oBytes := int(math.Ceil(float64((n-o)*o) / 2.0))
 	vBytes := int(math.Ceil(float64(n-o) / 2.0))
@@ -57,7 +58,11 @@ func initMayo(n, m, o, k, q, saltBytes, digestBytes, pkSeedBytes int, tailF []by
 	epkBytes := p1Bytes + p2Bytes + p3Bytes
 	sigBytes := int(math.Ceil(float64(n*k)/2.0)) + saltBytes
 
-	v := n - o
+	mVecLimbs := (m + 15) / 16
+	P1Limbs := v * (v + 1) / 2 * mVecLimbs
+	P2Limbs := v * o * mVecLimbs
+	P3Limbs := o * (o + 1) / 2 * mVecLimbs
+
 	shifts := k * (k + 1) / 2
 
 	return &Mayo{
@@ -86,6 +91,10 @@ func initMayo(n, m, o, k, q, saltBytes, digestBytes, pkSeedBytes int, tailF []by
 		rBytes:      skSeedBytes,
 		v:           v,
 		shifts:      shifts,
+		mVecLimbs:   mVecLimbs,
+		P1Limbs:     P1Limbs,
+		P2Limbs:     P2Limbs,
+		P3Limbs:     P3Limbs,
 		field:       field.InitField(),
 	}
 }

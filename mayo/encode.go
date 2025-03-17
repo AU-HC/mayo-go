@@ -1,6 +1,9 @@
 package mayo
 
-import "encoding/binary"
+import (
+	"encoding/binary"
+	"unsafe"
+)
 
 // encodeVec encodes a byte slice into a byte slice of half the length
 func encodeVec(bytes []byte) []byte {
@@ -120,5 +123,29 @@ func bytesToUint64Slice(dst []uint64, src []byte) {
 	for i := range dst {
 		dst[i] = binary.LittleEndian.Uint64(src)
 		src = src[8:]
+	}
+}
+
+// Taken from C reference implementation
+func (mayo *Mayo) unpackMVecs(in []byte, out []uint64, vecs int) {
+	tmp := make([]byte, mayo.m/2) // Temporary buffer for a single vector
+
+	for i := vecs - 1; i >= 0; i-- {
+		// Copy packed vector from `in` to `tmp`
+		copy(tmp[:], in[i*mayo.m/2:i*mayo.m/2+mayo.m/2])
+
+		// Copy `tmp` into the appropriate location in `out`
+		outBytes := (*(*[1 << 30]byte)(unsafe.Pointer(&out[0])))[:]
+		copy(outBytes[i*mayo.mVecLimbs*8:], tmp[:])
+	}
+}
+
+// Taken from C reference implementation
+func (mayo *Mayo) packMVecs(in []uint64, out []byte, vecs int) {
+	// Treat `in` as a byte slice for copying
+	inBytes := (*(*[1 << 30]byte)(unsafe.Pointer(&in[0])))[:]
+
+	for i := 0; i < vecs; i++ {
+		copy(out[i*mayo.m/2:], inBytes[i*mayo.mVecLimbs*8:i*mayo.mVecLimbs*8+mayo.m/2])
 	}
 }

@@ -86,7 +86,7 @@ func (mayo *Mayo) echelonForm(A []byte, nRows int, nCols int) {
 		pivotRowLowerBound := max(0, pivotCol+nRows-nCols)
 		pivotRowUpperBound := min(nRows-1, pivotCol)
 
-		for i := 0; i < rowLen; i++ { // TODO: Check if needed
+		for i := 0; i < rowLen; i++ {
 			pivotRowData[i] = 0
 			pivotRowData2[i] = 0
 		}
@@ -156,7 +156,7 @@ func (mayo *Mayo) ctCompare8(a, b byte) byte {
 }
 
 func (mayo *Mayo) efPackMVec(in []byte, inStart int, out []uint64, outStart int, nCols int) {
-	outBytes := unsafe.Slice((*byte)(unsafe.Pointer(&out[0])), len(out)*8) // TODO: take out+outstart?
+	outBytes := unsafe.Slice((*byte)(unsafe.Pointer(&out[0])), len(out)*8)
 	i := 0
 	for ; i+1 < nCols; i += 2 {
 		outBytes[outStart*8+i/2] = (in[inStart+i] << 0) | (in[inStart+i+1] << 4)

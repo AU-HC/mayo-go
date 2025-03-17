@@ -8,7 +8,7 @@ import (
 
 // CompactKeyGen (Algorithm 4) outputs compact representation of a secret key csk and public key cpk. Will instead
 // return an error, if it fails to generate random bytes.
-func (mayo *Mayo) CompactKeyGen() ([]byte, []byte, error) {
+func (mayo *Mayo) CompactKeyGen() (CompactPublicKey, CompactSecretKey, error) {
 	// Pick seekSk at random
 	seedSk := rand.SampleRandomBytes(mayo.skSeedBytes)
 
@@ -18,77 +18,57 @@ func (mayo *Mayo) CompactKeyGen() ([]byte, []byte, error) {
 	O := decodeMatrix(mayo.n-mayo.o, mayo.o, s[mayo.pkSeedBytes:mayo.pkSeedBytes+mayo.oBytes])
 
 	// Derive P_i^1 and P_i^2 from seekPk
-	P := rand.AES128CTR64(seedPk, mayo.p1Bytes+mayo.p2Bytes)
-	P1 := P[:mayo.p1Bytes/8]                                // v x v upper triangular matrix
-	P2 := P[mayo.p1Bytes/8 : (mayo.p1Bytes+mayo.p2Bytes)/8] // v x o matrix
+	P1, P2 := mayo.expandP1P2(seedPk)
 
 	// Compute P3
-	P3Bytes := mayo.computeP3(P1, O, P2)
-
-	// Encode the compact public/secret key
-	cpk := make([]byte, mayo.cpkBytes)
-	copy(cpk[:mayo.pkSeedBytes], seedPk)
-	copy(cpk[mayo.pkSeedBytes:], P3Bytes)
-	csk := seedSk
+	P3 := mayo.computeP3(P1, O, P2)
 
 	// Output keys
-	return cpk, csk, nil
+	return CompactPublicKey{seedPk: seedPk, p3: P3}, CompactSecretKey{seedSk: seedSk}, nil
 }
 
 // ExpandSK (Algorithm 5) takes the compacted secret key csk and outputs an expanded secret key esk
-func (mayo *Mayo) ExpandSK(csk []byte) []byte {
-	// Parse csk
-	seedSk := csk[:mayo.skSeedBytes]
-
+func (mayo *Mayo) ExpandSK(csk CompactSecretKey) ExpandedSecretKey {
 	// Derive seedPk and O from seedSk
-	S := rand.SHAKE256(mayo.pkSeedBytes+mayo.oBytes, seedSk)
+	S := rand.SHAKE256(mayo.pkSeedBytes+mayo.oBytes, csk.seedSk)
 	seedPk := S[:mayo.pkSeedBytes]
 	oByteString := S[mayo.pkSeedBytes : mayo.pkSeedBytes+mayo.oBytes]
 	O := decodeMatrix(mayo.n-mayo.o, mayo.o, oByteString)
 
 	// Derive P1 and P2 from seedPk
-	P := rand.AES128CTR64(seedPk, mayo.p1Bytes+mayo.p2Bytes)
-	P1 := P[:mayo.p1Bytes/8]                                // v x v upper triangular matrix
-	P2 := P[mayo.p1Bytes/8 : (mayo.p1Bytes+mayo.p2Bytes)/8] // v x o matrix
+	P1, P2 := mayo.expandP1P2(seedPk)
 
-	// Compute L
-	lBytes := mayo.computeL(P1, O, P2)
+	// Compute L and store in P2
+	mayo.computeL(P1, O, P2)
 
-	// Encode the SK and output esk
-	p1Bytes := make([]byte, mayo.p1Bytes)
-	uint64SliceToBytes(p1Bytes, P1)
-
-	esk := make([]byte, mayo.eskBytes)
-	copy(esk[:mayo.skSeedBytes], seedSk)
-	copy(esk[mayo.skSeedBytes:], oByteString)
-	copy(esk[mayo.skSeedBytes+mayo.oBytes:], p1Bytes)
-	copy(esk[mayo.skSeedBytes+mayo.oBytes+mayo.p1Bytes:], lBytes)
-	return esk
+	return ExpandedSecretKey{
+		seedSk: csk.seedSk,
+		p1:     P1,
+		l:      P2, // l is stored in P2
+		o:      oByteString,
+	}
 }
 
 // ExpandPK (Algorithm 6) takes the compacted public key csk and outputs an expanded public key epk
-func (mayo *Mayo) ExpandPK(cpk []byte) []byte {
-	// Parse cpk
-	seedPk := cpk[:mayo.pkSeedBytes]
+func (mayo *Mayo) ExpandPK(cpk CompactPublicKey) ExpandedPublicKey {
+	// Derive P_i^1 and P_i^2 from seekPk
+	seedPk := cpk.seedPk
+	P1, P2 := mayo.expandP1P2(seedPk)
 
-	// Expand seedPk and return epk
-	epk := make([]byte, mayo.epkBytes)
-	copy(epk[:mayo.p1Bytes+mayo.p2Bytes], rand.AES128CTR(seedPk, mayo.p1Bytes+mayo.p2Bytes))
-	copy(epk[mayo.p1Bytes+mayo.p2Bytes:], cpk[mayo.pkSeedBytes:mayo.pkSeedBytes+mayo.p3Bytes])
-	return epk
+	return ExpandedPublicKey{
+		p1: P1,
+		p2: P2,
+		p3: cpk.p3,
+	}
 }
 
 // Sign (Algorithm 7) takes an expanded secret key esk and a message m and outputs a signature on the message m
-func (mayo *Mayo) Sign(esk, m []byte) []byte {
+func (mayo *Mayo) Sign(esk ExpandedSecretKey, m []byte) []byte {
 	// Decode esk
-	seedSk := esk[:mayo.skSeedBytes]
-	O := decodeVec(mayo.v*mayo.o, esk[mayo.skSeedBytes:mayo.skSeedBytes+mayo.oBytes])
-	P1Bytes := esk[mayo.skSeedBytes+mayo.oBytes : mayo.skSeedBytes+mayo.oBytes+mayo.p1Bytes]
-	LBytes := esk[mayo.skSeedBytes+mayo.oBytes+mayo.p1Bytes : mayo.eskBytes]
-	P1 := make([]uint64, mayo.p1Bytes/8)
-	L := make([]uint64, mayo.lBytes/8)
-	bytesToUint64Slice(P1, P1Bytes)
-	bytesToUint64Slice(L, LBytes)
+	seedSk := esk.seedSk
+	O := decodeVec(mayo.v*mayo.o, esk.o)
+	P1 := esk.p1
+	L := esk.l
 
 	// Hash the message, and derive salt and t
 	mDigest := rand.SHAKE256(mayo.digestBytes, m)
@@ -96,7 +76,7 @@ func (mayo *Mayo) Sign(esk, m []byte) []byte {
 	salt := rand.SHAKE256(mayo.saltBytes, mDigest, R, seedSk)
 	t := decodeVec(mayo.m, rand.SHAKE256(mayo.intTimesLogQ(mayo.m), mDigest, salt))
 
-	mTemp := make([]uint64, mayo.k*mayo.o*4) // TODO: mVecLimbs = 4
+	mTemp := make([]uint64, mayo.k*mayo.o*mayo.mVecLimbs)
 
 	// Attempt to find a preimage for t
 	x := make([]byte, mayo.k*mayo.n)
@@ -148,14 +128,11 @@ func (mayo *Mayo) Sign(esk, m []byte) []byte {
 
 // Verify (Algorithm 8) takes an expanded public key, message m, and signature sig and outputs an integer to indicate
 // if the signature is valid on m. Specifically if the signature is valid it will output 0, if invalid < 0.
-func (mayo *Mayo) Verify(epk, m, sig []byte) int {
+func (mayo *Mayo) Verify(epk ExpandedPublicKey, m, sig []byte) int {
 	// Decode epk
-	P1 := make([]uint64, mayo.p1Bytes/8)
-	P2 := make([]uint64, mayo.p2Bytes/8)
-	P3 := make([]uint64, mayo.p3Bytes/8)
-	bytesToUint64Slice(P1, epk[:mayo.p1Bytes])
-	bytesToUint64Slice(P2, epk[mayo.p1Bytes:mayo.p1Bytes+mayo.p2Bytes])
-	bytesToUint64Slice(P3, epk[mayo.p1Bytes+mayo.p2Bytes:mayo.p1Bytes+mayo.p2Bytes+mayo.p3Bytes])
+	P1 := epk.p1
+	P2 := epk.p2
+	P3 := epk.p3
 
 	// Decode sig
 	nkHalf := int(math.Ceil(float64(mayo.n) * float64(mayo.k) / 2.0))
@@ -169,10 +146,9 @@ func (mayo *Mayo) Verify(epk, m, sig []byte) int {
 	// Compute P^*(s)
 	y := make([]byte, 2*mayo.m)
 	mayo.evalPublicMap(s, P1, P2, P3, y)
-	y = y[:mayo.m] // TODO: handle this differently?
 
 	// Accept the signature if y = t
-	if bytes.Equal(y, t) {
+	if bytes.Equal(y[:mayo.m], t) {
 		return 0
 	}
 	return -1
@@ -180,7 +156,7 @@ func (mayo *Mayo) Verify(epk, m, sig []byte) int {
 
 // APISign (Algorithm 9) Takes a secret sk and message, it then expands the SK and calls Sign with the expanded secret key
 // to produce the signature. It then outputs sig || M
-func (mayo *Mayo) APISign(M, sk []byte) []byte {
+func (mayo *Mayo) APISign(M []byte, sk CompactSecretKey) []byte {
 	// Expand the SK
 	esk := mayo.ExpandSK(sk)
 
@@ -196,7 +172,7 @@ func (mayo *Mayo) APISign(M, sk []byte) []byte {
 
 // APISignOpen (Algorithm 10) Takes a signed message sig || m as input and expands the public key, which then calls
 // Verify to check if the signature is valid. It returns the result and message if the signature is valid
-func (mayo *Mayo) APISignOpen(sm, pk []byte) (int, []byte) {
+func (mayo *Mayo) APISignOpen(sm []byte, pk CompactPublicKey) (int, []byte) {
 	// Expand the PK
 	epk := mayo.ExpandPK(pk)
 
@@ -211,6 +187,17 @@ func (mayo *Mayo) APISignOpen(sm, pk []byte) (int, []byte) {
 		return result, nil
 	}
 	return result, M
+}
+
+func (mayo *Mayo) expandP1P2(seedPk []byte) ([]uint64, []uint64) {
+	// First define array and fill it with bytes
+	p1p2Bytes := rand.AES128CTR(seedPk[:], mayo.p1Bytes+mayo.p2Bytes)
+
+	// Unpack the bytes
+	P := make([]uint64, mayo.P1Limbs+mayo.P2Limbs)
+	mayo.unpackMVecs(p1p2Bytes[:], P[:], (mayo.P1Limbs+mayo.P2Limbs)/mayo.mVecLimbs)
+
+	return P[:mayo.P1Limbs], P[mayo.P1Limbs : mayo.P1Limbs+mayo.P2Limbs]
 }
 
 func (mayo *Mayo) intTimesLogQ(ints ...int) int {
