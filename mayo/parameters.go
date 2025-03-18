@@ -83,7 +83,7 @@ func initMayo(n, m, o, k, q, saltBytes, digestBytes, pkSeedBytes int, tailF []by
 		cpkBytes:    cpkBytes,
 		epkBytes:    epkBytes,
 		sigBytes:    sigBytes,
-		rBytes:      skSeedBytes,
+		rBytes:      skSeedBytes, // TODO: Error in spec
 		v:           v,
 		shifts:      shifts,
 		field:       field.InitField(),
