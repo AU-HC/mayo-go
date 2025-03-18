@@ -323,8 +323,8 @@ func (mayo *Mayo) reduceVecModF(y []byte) []byte {
 func (mayo *Mayo) reduceAModF(A [][]byte) [][]byte {
 	for row := mayo.m + mayo.shifts - 1; row >= mayo.m; row-- {
 		for column := 0; column < mayo.k*mayo.o; column++ {
-			for shift := 0; shift < len(mayo.tailF); shift++ {
-				A[row-mayo.m+shift][column] ^= mayo.field.Gf16Mul(A[row][column], mayo.tailF[shift])
+			for shift, coefficient := range mayo.tailF {
+				A[row-mayo.m+shift][column] ^= mayo.field.Gf16Mul(A[row][column], coefficient)
 			}
 			A[row][column] = 0
 		}
