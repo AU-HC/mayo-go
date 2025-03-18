@@ -1,23 +1,31 @@
-package benchmark
+package mayo
 
 import (
 	"encoding/json"
 	"fmt"
-	crypto "mayo-go/mayo"
 	"os"
 	"time"
 )
 
-const directory = "benchmark/results"
+const directory = "results"
 const fileName = "results.json"
+const amountOfExpandPkRuns = 30
+const amountOfVerifyRuns = 10
 
-func ParameterSet(securityLevel, n int) {
-	// Initialize MAYO with the security level
+type Results struct {
+	KeyGen   []int64 `json:"KeyGen"`
+	ExpandSK []int64 `json:"ExpandSK"`
+	ExpandPK []int64 `json:"ExpandPK"`
+	Sign     []int64 `json:"ExpandSK + Sign"`
+	Verify   []int64 `json:"ExpandPK + Verify"`
+}
+
+func Benchmark(paramSet, n int) (string, error) {
+	// Initialize MAYO
 	message := make([]byte, 32)
-	mayo, err := crypto.InitMayo(securityLevel)
+	mayo, err := InitMayo(paramSet)
 	if err != nil {
-		fmt.Println(err)
-		return
+		panic(err)
 	}
 
 	// Benchmark CompactKeyGen
@@ -43,9 +51,11 @@ func ParameterSet(securityLevel, n int) {
 	expandPKResults := make([]int64, n)
 	for i := 0; i < n; i++ {
 		before := time.Now()
-		mayo.ExpandPK(cpks[i])
+		for j := 0; j < amountOfExpandPkRuns; j++ {
+			mayo.ExpandPK(cpks[i])
+		}
 		duration := time.Since(before)
-		expandPKResults[i] = duration.Nanoseconds()
+		expandPKResults[i] = duration.Nanoseconds() / amountOfExpandPkRuns
 	}
 
 	// Benchmark Sign (ExpandSK + Sign)
@@ -63,9 +73,11 @@ func ParameterSet(securityLevel, n int) {
 	verifyResults := make([]int64, n)
 	for i := 0; i < n; i++ {
 		before := time.Now()
-		mayo.APISignOpen(signatures[i], cpks[i])
+		for j := 0; j < amountOfVerifyRuns; j++ {
+			mayo.APISignOpen(signatures[i], cpks[i])
+		}
 		duration := time.Since(before)
-		verifyResults[i] = duration.Nanoseconds()
+		verifyResults[i] = duration.Nanoseconds() / amountOfVerifyRuns
 	}
 
 	// Create struct to contain data-points
@@ -80,16 +92,19 @@ func ParameterSet(securityLevel, n int) {
 	// Write the results to JSON in results directory
 	resultsJson, err := json.MarshalIndent(results, "", " ")
 	if err != nil {
-		panic(err)
+		return "", err
 	}
-	err = os.WriteFile(fmt.Sprintf("%s/paramset-%d-%s-%s",
-		directory, securityLevel, time.Now().Format("2006-01-02-15-04-05"), fileName), resultsJson, 0644)
+	pathToResults := fmt.Sprintf("%s/%s-%s", directory, time.Now().Format("2006-01-02-15-04-05"), fileName)
+	fmt.Println(pathToResults)
+	err = os.WriteFile(pathToResults, resultsJson, 0644)
 	if err != nil {
-		panic(err)
+		return "", err
 	}
+
+	return pathToResults, nil
 }
 
-func generateCompactKeys(mayo *crypto.Mayo, n int) ([][]byte, [][]byte) {
+func generateCompactKeys(mayo *Mayo, n int) ([][]byte, [][]byte) {
 	cpks := make([][]byte, n)
 	csks := make([][]byte, n)
 	for i := 0; i < n; i++ {
