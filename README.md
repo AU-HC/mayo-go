@@ -39,6 +39,6 @@ Our implementation also has alternate options which can be set, using the follow
 - `-b` of type `int`: Specifies the amount of samples for a benchmarking run. Setting this flag with a value other than 0.
 
 ## Remarks
-- This branch has the most unoptimized code, which is based heavily the specification. 
+- This branch has the most optimized code, which uses bit-sliced arithmetic on arrays.
 - See [optimized-implementation](https://github.com/AU-HC/mayo-go/tree/optimized-implementation) for an optimized implementation that uses bit-sliced arithmetic on slices.
-- See [optimized-implementation-arrays](https://github.com/AU-HC/mayo-go/tree/optimized-implementation-arrays) for an optimized implementation that uses bit-sliced arithmetic on arrays.
+- See [master](https://github.com/AU-HC/mayo-go/tree/master) for unoptimized code, which is based heavily the specification.
