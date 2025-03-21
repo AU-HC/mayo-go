@@ -20,7 +20,7 @@ $ git clone https://github.com/AU-HC/mayo-go
 Then get the dependencies:
 ```
 $ cd mayo-go
-$ go ge
+$ go get
 ```
 Lastly, our implementation utilizes functions written in C, thus a C compiler is needed, for Windows we recommend: 
 [tdm-gcc](https://jmeubank.github.io/tdm-gcc/articles/2021-05/10.3.0-release). Afterwards, remember to enable CGO:
