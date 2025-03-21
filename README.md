@@ -25,7 +25,7 @@ $ go ge
 Lastly, our implementation utilizes functions written in C, thus a C compiler is needed, for Windows we recommend: 
 [tdm-gcc](https://jmeubank.github.io/tdm-gcc/articles/2021-05/10.3.0-release). Afterwards, remember to enable CGO:
 ```
-go env -w CGO_ENABLED=1
+$ go env -w CGO_ENABLED=1
 ```
 
 ## Usage
