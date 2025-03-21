@@ -31,9 +31,9 @@ $ go env -w CGO_ENABLED=1
 ## Usage
 Our implementation is currently a command line tool, to generate keys, sign, and verify a message the following command can be executed:
 ```
-$ go run main.go -p=2
+$ go run main.go
 ```
-It's important to note that the `-p` flag must be set, as it specifies the parameter set of MAYO.
+It's important to note that we are using build files for constants, this means that `-tags` must be set to a valid parameter set of MAYO, such as `MAYO2`.
 
 Our implementation also has alternate options which can be set, using the following flags:
 - `-b` of type `int`: Specifies the amount of samples for a benchmarking run. Setting this flag with a value other than 0.
