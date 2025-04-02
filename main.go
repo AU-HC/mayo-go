@@ -41,7 +41,7 @@ func main() {
 		return
 	}
 	fmt.Println(fmt.Sprintf("Keygen took: %dms", time.Since(before).Milliseconds()))
-
+	
 	// Sign the message
 	before = time.Now()
 	sig := mayo.APISign(message, csk)

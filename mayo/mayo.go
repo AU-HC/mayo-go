@@ -2,17 +2,32 @@ package mayo
 
 import (
 	"bytes"
+	"encoding/json"
+	"fmt"
 	"math"
 	"mayo-go/field"
 	"mayo-go/rand"
+	"os"
 	"slices"
 )
+
+type ExpandedSecretKey struct {
+	P1 [][][]byte
+	L  [][][]byte
+	O  [][]byte
+}
+
+type ExpandedPublicKey struct {
+	P1 [][][]byte
+	P2 [][][]byte
+	P3 [][][]byte
+}
 
 // CompactKeyGen (Algorithm 4) outputs compact representation of a secret key csk and public key cpk. Will instead
 // return an error, if it fails to generate random bytes.
 func (mayo *Mayo) CompactKeyGen() ([]byte, []byte, error) {
 	// Pick seekSk at random
-	seedSk := rand.SampleRandomBytes(mayo.skSeedBytes)
+	seedSk := make([]byte, mayo.skSeedBytes) //rand.SampleRandomBytes(mayo.skSeedBytes)
 
 	// Derive seedPk and O from seekSk
 	s := rand.Shake256(mayo.pkSeedBytes+mayo.oBytes, seedSk)
@@ -62,6 +77,22 @@ func (mayo *Mayo) ExpandSK(csk []byte) []byte {
 	for i := 0; i < mayo.m; i++ {
 		L[i] = field.AddMatrices(mayo.field.MultiplyMatrices(field.AddMatrices(P1[i], transposeMatrix(P1[i])), O), P2[i])
 	}
+
+	eskStruct := ExpandedSecretKey{
+		P1: P1,
+		L:  L,
+		O:  O,
+	}
+	jsonData, err := json.MarshalIndent(eskStruct, "", " ")
+	if err != nil {
+		panic(err)
+	}
+	err = os.WriteFile("esk_mock.json", jsonData, 0644)
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println(eskStruct)
 
 	// Encode L and output esk
 	esk := make([]byte, mayo.eskBytes)
@@ -204,6 +235,20 @@ func (mayo *Mayo) Verify(epk, m, sig []byte) int {
 	P1 := decodeMatrices(mayo.m, mayo.v, mayo.v, P1ByteString, true)
 	P2 := decodeMatrices(mayo.m, mayo.v, mayo.o, P2ByteString, false)
 	P3 := decodeMatrices(mayo.m, mayo.o, mayo.o, P3ByteString, true)
+
+	epkStruct := ExpandedPublicKey{
+		P1: P1,
+		P2: P2,
+		P3: P3,
+	}
+	jsonData, err := json.MarshalIndent(epkStruct, "", " ")
+	if err != nil {
+		panic(err)
+	}
+	err = os.WriteFile("epk_mock.json", jsonData, 0644)
+	if err != nil {
+		panic(err)
+	}
 
 	// Decode sig
 	nkHalf := int(math.Ceil(float64(mayo.n) * float64(mayo.k) / 2.0))
