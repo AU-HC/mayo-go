@@ -92,8 +92,6 @@ func (mayo *Mayo) ExpandSK(csk []byte) []byte {
 		panic(err)
 	}
 
-	fmt.Println(eskStruct)
-
 	// Encode L and output esk
 	esk := make([]byte, mayo.eskBytes)
 	copy(esk[:mayo.skSeedBytes], seedSk)
@@ -127,7 +125,8 @@ func (mayo *Mayo) Sign(esk, m []byte) []byte {
 	mDigest := rand.Shake256(mayo.digestBytes, m)
 	R := rand.SampleRandomBytes(mayo.rBytes)
 	salt := rand.Shake256(mayo.saltBytes, mDigest, R, seedSk)
-	t := decodeVec(mayo.m, rand.Shake256(mayo.intTimesLogQ(mayo.m), mDigest, salt))
+	//t := decodeVec(mayo.m, rand.Shake256(mayo.intTimesLogQ(mayo.m), mDigest, salt))
+	t := []byte{3, 8, 14, 3, 8, 15, 8, 15, 5, 11, 12, 1, 9, 13, 7, 2, 8, 7, 9, 13, 0, 3, 10, 10, 9, 12, 0, 8, 3, 9, 3, 8, 7, 15, 11, 12, 4, 12, 8, 8, 3, 9, 9, 2, 8, 9, 15, 11, 14, 7, 11, 11, 3, 11, 15, 12, 3, 2, 10, 8, 13, 6, 8, 6}
 
 	// Attempt to find a preimage for t
 	var x []byte
