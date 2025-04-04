@@ -251,8 +251,8 @@ func (mayo *Mayo) Verify(epk, m, sig []byte) int {
 	}
 
 	// Decode sig
-	nkHalf := int(math.Ceil(float64(mayo.n) * float64(mayo.k) / 2.0))
-	salt := sig[nkHalf : nkHalf+mayo.saltBytes]
+	//nkHalf := int(math.Ceil(float64(mayo.n) * float64(mayo.k) / 2.0))
+	salt := sig[len(sig)-mayo.m:]
 	s := decodeVec(mayo.k*mayo.n, sig)
 	sVector := make([][]byte, mayo.k)
 	for i := 0; i < mayo.k; i++ {
@@ -261,8 +261,12 @@ func (mayo *Mayo) Verify(epk, m, sig []byte) int {
 	}
 
 	// Hash the message and derive t
-	mDigest := rand.Shake256(mayo.digestBytes, m)
-	t := decodeVec(mayo.m, rand.Shake256(mayo.intTimesLogQ(mayo.m), mDigest, salt))
+	//mDigest := rand.Shake256(mayo.digestBytes, m)
+	//t := decodeVec(mayo.m, rand.Shake256(mayo.intTimesLogQ(mayo.m), mDigest, salt))
+	t := rand.Shake256(mayo.m, m, salt)
+	for index, elem := range t {
+		t[index] = elem & 0xf
+	}
 
 	// Compute P^*(s)
 	P := mayo.calculateP(P1, P2, P3)
@@ -301,6 +305,10 @@ func (mayo *Mayo) Verify(epk, m, sig []byte) int {
 
 	// Reduce y mod f(x)
 	y = mayo.reduceVecModF(y)
+
+	fmt.Println(salt)
+	fmt.Println(t)
+	fmt.Println(y)
 
 	// Accept the signature if y = t
 	if bytes.Equal(y, t) {
